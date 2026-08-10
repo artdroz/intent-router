@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Environment and secrets
+.env
+
+# Operator project list (copy from projects.example.yaml)
+config/projects.yaml
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Build / cache
+dist/
+build/
+.cache/
+*.log
+coverage/
+*.js.map
+
+# Data artifacts (generated status, local exports)
+data/
+*.db
