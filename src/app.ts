@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
+import { initDb, runMigrations } from "./store/db.js";
 import { createLlmClient } from "./lib/llm-client.js";
 
 const envSchema = {
@@ -41,6 +42,10 @@ export async function buildApp() {
   // Load & validate environment
   await app.register(fastifyEnv, { schema: envSchema, dotenv: true });
 
+  // Database
+  initDb(app.config.DATABASE_URL);
+  await runMigrations();
+
   // CORS
   await app.register(fastifyCors);
 
@@ -48,8 +53,8 @@ export async function buildApp() {
   app.get("/health", async () => ({ status: "ok" }));
 
   const llm = createLlmClient({
-    baseUrl: app.config.LLM_BASE_URL,    // http://litellm:4000
-    model: app.config.LLM_MODEL,         // default model
+    baseUrl: app.config.LLM_BASE_URL,
+    model: app.config.LLM_MODEL, 
     apiKey: app.config.LLM_API_KEY,
     });
 
