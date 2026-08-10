@@ -13,28 +13,33 @@ const MODEL_DIMS: Record<string, number> = {
   "mistral-embed": 1024,
 };
 
-export type Embedder = {
+export type EmbedClient = {
   embed(text: string): Promise<number[]>;
   readonly dims: number;
 };
 
-export function createEmbedder(config: {
+export function createEmbedClient(config: {
   baseUrl: string;
   model: string;
   apiKey?: string;
   dims?: number;
-}): Embedder {
+}): EmbedClient {
   const baseUrl = config.baseUrl.replace(/\/$/, "");
   let dims = config.dims ?? MODEL_DIMS[config.model] ?? 0;
 
   return {
-    embed: (text) => callEmbeddingAPI(baseUrl, config.model, config.apiKey, text, (len) => { if (dims === 0) dims = len; }),
-    get dims() { return dims; },
+    embed: (text) =>
+      callEmbeddingAPI(baseUrl, config.model, config.apiKey, text, (len) => {
+        if (dims === 0) dims = len;
+      }),
+    get dims() {
+      return dims;
+    },
   };
 }
 
 /**
- * OpenAI-compatible embedding API client.
+ * OpenAI-compatible embedding API.
  * POST /v1/embeddings  →  { data: [{ embedding: number[] }] }
  */
 async function callEmbeddingAPI(
@@ -65,4 +70,3 @@ async function callEmbeddingAPI(
   onFirstCall(embedding.length);
   return embedding;
 }
-
