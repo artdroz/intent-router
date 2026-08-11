@@ -1,4 +1,4 @@
-import { pgTable, text, integer, real, uniqueIndex, jsonb, timestamp, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, integer, real, uniqueIndex, jsonb, timestamp, customType, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
 const vector = customType<{ data: number[]; driverData: string }>({
@@ -34,7 +34,9 @@ export const gates = pgTable("gates", {
   enabled: integer("enabled").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_gates_apikey").on(t.apiKeyId),
+]);
 
 export const classes = pgTable("classes", {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -48,7 +50,10 @@ export const classes = pgTable("classes", {
     promotedKeywords: text("promoted_keywords").array().notNull().default(sql`ARRAY[]::text[]`),
     weight: real("weight").notNull().default(1.0),
   },
-  (t) => [uniqueIndex("uq_class").on(t.gateName, t.label)],
+  (t) => [
+    uniqueIndex("uq_class").on(t.gateName, t.label),
+    index("idx_classes_gate").on(t.gateId),
+  ],
 );
 
 export const embeddings = pgTable("embeddings", {
@@ -56,11 +61,14 @@ export const embeddings = pgTable("embeddings", {
   classId: integer("class_id")
     .notNull()
     .references(() => classes.id, { onDelete: "cascade" }),
-  gateName: text("gate_name").notNull(), 
+  gateName: text("gate_name").notNull(),
+  label: text("label").notNull(),
   content: text("content").notNull(),
-  source: text("source").notNull().default("config"),  // 'config' | 'promoted'
-  embedding: vector("embedding").notNull(),            // enforced in logic
-});
+  source: text("source").notNull().default("config"),
+  embedding: vector("embedding").notNull(),
+}, (t) => [
+  index("idx_embeddings_gate").on(t.gateName),
+]);
 
 export const feedback = pgTable("feedback", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),

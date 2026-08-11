@@ -1,9 +1,13 @@
 import type { FastifyInstance, RouteGenericInterface } from "fastify";
 import * as service from "./service.js";
-import { createGateSchema, updateGateSchema } from "./schema.js";
+import { createGateSchema, updateGateSchema, updateClassSchema, addClassSchema } from "./schema.js";
 
 interface GateParams extends RouteGenericInterface {
   Params: { name: string };
+}
+
+interface ClassParams extends RouteGenericInterface {
+  Params: { name: string; label: string };
 }
 
 export async function gateRoutes(app: FastifyInstance) {
@@ -30,6 +34,22 @@ export async function gateRoutes(app: FastifyInstance) {
 
   app.delete<GateParams>("/api/gates/:name", async (req, reply) => {
     await service.disableGate(req.apiKeyId, req.params.name);
+    return reply.status(204).send();
+  });
+
+  app.post("/api/gates/:name/classes", async (req, reply) => {
+    const input = addClassSchema.parse(req.body);
+    const cls = await service.addClass(req.apiKeyId, (req.params as { name: string }).name, input);
+    return reply.status(201).send(cls);
+  });
+
+  app.patch<ClassParams>("/api/gates/:name/classes/:label", async (req) => {
+    const input = updateClassSchema.parse(req.body);
+    return service.updateClass(req.apiKeyId, req.params.name, req.params.label, input);
+  });
+
+  app.delete<ClassParams>("/api/gates/:name/classes/:label", async (req, reply) => {
+    await service.deleteClass(req.apiKeyId, req.params.name, req.params.label);
     return reply.status(204).send();
   });
 }
