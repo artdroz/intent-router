@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
 import { initDb, runMigrations } from "./store/db.js";
+import { authPlugin } from "./auth/plugin.js";
 import { createLlmClient } from "./lib/llm-client.js";
 
 const envSchema = {
@@ -49,9 +50,13 @@ export async function buildApp() {
   // CORS
   await app.register(fastifyCors);
 
-  // Health check 
+  // Health check
   app.get("/health", async () => ({ status: "ok" }));
 
+  // Auth
+  await app.register(authPlugin);
+
+  // LLM client
   const llm = createLlmClient({
     baseUrl: app.config.LLM_BASE_URL,
     model: app.config.LLM_MODEL, 
