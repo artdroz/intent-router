@@ -41,11 +41,3 @@ export async function updateKey(
     .returning();
   return updated ?? null;
 }
-
-export async function transferGates(fromKeyId: number, toKeyId: number) {
-  const { gates } = await import("./schema.js");
-  await getDb()
-    .update(gates)
-    .set({ apiKeyId: toKeyId })
-    .where(eq(gates.apiKeyId, fromKeyId));
-}

@@ -20,6 +20,8 @@ export const apiKeys = pgTable("api_keys", {
 
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
+export type GateRow = typeof gates.$inferSelect;
+export type ClassRow = typeof classes.$inferSelect;
 
 export const gates = pgTable("gates", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
@@ -28,7 +30,8 @@ export const gates = pgTable("gates", {
     .references(() => apiKeys.id, { onDelete: "cascade" }),
   name: text("name").notNull().unique(),
   description: text("description"),
-  config: jsonb("config").notNull(),            // { strategy, thresholds, learning, ... }
+  config: jsonb("config").notNull(),
+  enabled: integer("enabled").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -41,7 +44,7 @@ export const classes = pgTable("classes", {
     gateName: text("gate_name").notNull(), 
     label: text("label").notNull(),
     utterances: text("utterances").array().notNull().default(sql`ARRAY[]::text[]`),
-    configKeywords: text("config_keywords").array().notNull().default(sql`ARRAY[]::text[]`),
+    keywords: text("keywords").array().notNull().default(sql`ARRAY[]::text[]`),
     promotedKeywords: text("promoted_keywords").array().notNull().default(sql`ARRAY[]::text[]`),
     weight: real("weight").notNull().default(1.0),
   },

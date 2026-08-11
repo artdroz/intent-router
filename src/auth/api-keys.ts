@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import * as store from "../store/api-keys.js";
+import * as gateStore from "../store/gates.js";
 
 const MIN_NAME_LENGTH = 2;
 const MIN_EXPIRY_DAYS = 1;
@@ -65,7 +66,7 @@ export async function transferKey(fromName: string, toName: string) {
   if (!to) throw new Error(`Key "${toName}" not found`);
 
   // RoutingEvents stay with the original key
-  await store.transferGates(from.id, to.id);
+  await gateStore.transferGates(from.id, to.id);
   await store.updateKey(fromName, { enabled: 0 });
 }
 

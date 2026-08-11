@@ -3,6 +3,7 @@ import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
 import { initDb, runMigrations } from "./store/db.js";
 import { authPlugin } from "./auth/plugin.js";
+import { gateRoutes } from "./gates/routes.js";
 import { createLlmClient } from "./lib/llm-client.js";
 
 const envSchema = {
@@ -55,6 +56,9 @@ export async function buildApp() {
 
   // Auth
   await app.register(authPlugin);
+
+  // Domain routes
+  await app.register(gateRoutes);
 
   // LLM client
   const llm = createLlmClient({
