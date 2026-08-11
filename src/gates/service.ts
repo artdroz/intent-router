@@ -1,4 +1,6 @@
 import * as store from "../store/gates.js";
+import * as embeddingsStore from "../store/embeddings.js";
+import { getEmbedClient } from "../lib/embed-client.js";
 import type { CreateGateInput, UpdateGateInput, UpdateClassInput, AddClassInput } from "./schema.js";
 import type { Gate, GateClass } from "./types.js";
 import type { GateRow, ClassRow } from "../store/schema.js";
@@ -9,7 +11,11 @@ export async function createGate(apiKeyId: number, input: CreateGateInput): Prom
 
   const raw = await store.createGate(apiKeyId, input);
   if (!raw) throw new Error("Failed to create gate");
-  // TODO: generate embeddings for utterances
+
+  for (const c of raw.classes) {
+    await indexClassUtterances(c.id, raw.gate.name, c.label, c.utterances);
+  }
+
   return toGate(raw);
 }
 
@@ -60,6 +66,13 @@ export async function updateClass(
 
   const raw = await store.updateClass(apiKeyId, gateName, label, input);
   if (!raw) throw new Error(`Gate "${gateName}" or class "${label}" not found`);
+
+  // Re-index if utterances changed
+  if (input.utterances) {
+    await embeddingsStore.deleteByClassId(raw.id, "config");
+    await indexClassUtterances(raw.id, gateName, raw.label, raw.utterances);
+  }
+
   return toGateClass(raw);
 }
 
@@ -80,7 +93,9 @@ export async function addClass(
 
   const raw = await store.addClass(apiKeyId, gateName, input);
   if (!raw) throw new Error(`Failed to add class "${input.label}"`);
-  // TODO: generate embeddings for new utterances
+
+  await indexClassUtterances(raw.id, gateName, raw.label, raw.utterances);
+
   return toGateClass(raw);
 }
 
@@ -143,4 +158,25 @@ function assertValidClasses(classes: { label: string; utterances?: string[] | nu
     }
     seen.add(c.label);
   }
+}
+
+async function indexClassUtterances(
+  classId: number,
+  gateName: string,
+  label: string,
+  utterances: string[],
+) {
+  if (utterances.length === 0) return;
+  const embed = getEmbedClient();
+  const rows = await Promise.all(
+    utterances.map(async (text) => ({
+      classId,
+      gateName,
+      label,
+      content: text,
+      source: "config" as const,
+      embedding: await embed.embed(text),
+    })),
+  );
+  await embeddingsStore.insertMany(rows);
 }

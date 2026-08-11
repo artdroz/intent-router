@@ -70,3 +70,21 @@ async function callEmbeddingAPI(
   onFirstCall(embedding.length);
   return embedding;
 }
+
+// ── Singleton ────────────────────────────────────────────
+
+let _client: EmbedClient | null = null;
+
+export function initEmbedClient(config: {
+  baseUrl: string;
+  model: string;
+  apiKey?: string;
+  dims?: number;
+}) {
+  _client = createEmbedClient(config);
+}
+
+export function getEmbedClient(): EmbedClient {
+  if (!_client) throw new Error("Embed client not initialized — call initEmbedClient first");
+  return _client;
+}

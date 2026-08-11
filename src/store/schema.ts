@@ -22,6 +22,8 @@ export type ApiKeyRow = typeof apiKeys.$inferSelect;
 export type NewApiKey = typeof apiKeys.$inferInsert;
 export type GateRow = typeof gates.$inferSelect;
 export type ClassRow = typeof classes.$inferSelect;
+export type EmbeddingRow = typeof embeddings.$inferSelect;
+export type NewEmbedding = typeof embeddings.$inferInsert;
 
 export const gates = pgTable("gates", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
