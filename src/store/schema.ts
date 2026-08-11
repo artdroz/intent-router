@@ -9,13 +9,17 @@ const vector = customType<{ data: number[]; driverData: string }>({
 
 export const apiKeys = pgTable("api_keys", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-  keyHash: text("key_hash").notNull().unique(),  // SHA-256 of the full key
-  prefix: text("prefix").notNull(),              // first 8 chars (e.g. "sk-abc1…") for display
+  keyHash: text("key_hash").notNull().unique(),
+  prefix: text("prefix").notNull(),
   name: text("name").notNull(),
   enabled: integer("enabled").notNull().default(1),
+  expiresAt: timestamp("expires_at"),              // null = never expires
   createdAt: timestamp("created_at").notNull().defaultNow(),
   lastUsedAt: timestamp("last_used_at"),
 });
+
+export type ApiKeyRow = typeof apiKeys.$inferSelect;
+export type NewApiKey = typeof apiKeys.$inferInsert;
 
 export const gates = pgTable("gates", {
   id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
