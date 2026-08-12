@@ -13,6 +13,7 @@ export async function createApiKey(opts: { name: string; expiresInDays?: number 
   let raw: string;
   let hash: string;
   
+  // Hash generation retry
   do {
     raw = `sk-${randomUUID()}`;
     hash = createHash("sha256").update(raw).digest("hex");
@@ -47,6 +48,10 @@ export async function enableApiKey(name: string) {
   return key;
 }
 
+/** Extend the expiry of an API key. 
+ *  If not expired, extend from the current expiry date. 
+ *  If expired, extend from the current date. 
+ */
 export async function extendApiKey(name: string, days: number) {
   assertValidExpiryDays(days);
   const key = await store.findKeyByName(name);
@@ -59,13 +64,14 @@ export async function extendApiKey(name: string, days: number) {
   return store.updateKey(name, { expiresAt: new Date(base.getTime() + days * 86_400_000) });
 }
 
+/** Transfer all gates from one API key to another. */
 export async function transferKey(fromName: string, toName: string) {
   const from = await store.findKeyByName(fromName);
   const to = await store.findKeyByName(toName);
   if (!from) throw new Error(`Key "${fromName}" not found`);
   if (!to) throw new Error(`Key "${toName}" not found`);
 
-  // RoutingEvents stay with the original key
+  // RoutingEvents is the audit trail, which stays with the original key
   await gateStore.transferGates(from.id, to.id);
   await store.updateKey(fromName, { enabled: 0 });
 }

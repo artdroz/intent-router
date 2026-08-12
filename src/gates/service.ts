@@ -114,7 +114,7 @@ export async function deleteClass(
   if (!result) throw new Error(`Class "${label}" not found in gate "${gateName}"`);
 }
 
-function toGate(raw: { gate: GateRow; classes: ClassRow[] }): Gate {
+export function toGate(raw: { gate: GateRow; classes: ClassRow[] }): Gate {
   return {
     id: raw.gate.id,
     name: raw.gate.name,
@@ -167,7 +167,7 @@ async function indexClassUtterances(
   utterances: string[],
 ) {
   if (utterances.length === 0) return;
-  const embed = getEmbedClient();
+  const embedClient = getEmbedClient();
   const rows = await Promise.all(
     utterances.map(async (text) => ({
       classId,
@@ -175,7 +175,7 @@ async function indexClassUtterances(
       label,
       content: text,
       source: "config" as const,
-      embedding: await embed.embed(text),
+      embedding: await embedClient.embed(text),
     })),
   );
   await embeddingsStore.insertMany(rows);

@@ -6,6 +6,8 @@ import { authPlugin } from "./auth/plugin.js";
 import { gateRoutes } from "./gates/routes.js";
 import { initEmbedClient } from "./lib/embed-client.js";
 import { createLlmClient } from "./lib/llm-client.js";
+import { routingRoutes } from "./routing/routes.js";
+import { initRouter } from "./routing/service.js";
 
 const envSchema = {
   type: "object",
@@ -20,6 +22,7 @@ const envSchema = {
     LLM_BASE_URL: { type: "string" },
     LLM_MODEL: { type: "string" },
     LLM_API_KEY: { type: "string", nullable: true },
+    MAX_PROMPT_LENGTH: { type: "number", default: 20000 },
   },
 } as const;
 
@@ -35,6 +38,7 @@ declare module "fastify" {
       LLM_BASE_URL: string;
       LLM_MODEL: string;
       LLM_API_KEY?: string;
+      MAX_PROMPT_LENGTH: number;
     };
   }
 }
@@ -58,30 +62,27 @@ export async function buildApp() {
   // Auth
   await app.register(authPlugin);
 
-  // Domain routes
-  await app.register(gateRoutes);
-
   // LLM client
   const llm = createLlmClient({
     baseUrl: app.config.LLM_BASE_URL,
     model: app.config.LLM_MODEL, 
     apiKey: app.config.LLM_API_KEY,
   });
-  void llm; // TODO: use LLM client in routes
 
   // Embed client
-  initEmbedClient({
+  const embed = initEmbedClient({
     baseUrl: app.config.EMBED_BASE_URL,
     model: app.config.EMBED_MODEL,
     apiKey: app.config.EMBED_API_KEY,
     dims: app.config.EMBED_DIMS,
   });
 
+  // Routing engine (keyword + semantic + LLM cascade)
+  initRouter(llm, embed);
 
-  // 4. Domain routes (register later as you build them)
-  // await app.register(gateRoutes, { prefix: "/api/gates" });
-  // await app.register(routingRoutes, { prefix: "/api" });
-  // await app.register(learningRoutes, { prefix: "/api/learning" });
+  // Domain routes
+  await app.register(gateRoutes);
+  await app.register(routingRoutes);
 
   return app;
 }

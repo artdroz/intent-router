@@ -82,6 +82,7 @@ export function initEmbedClient(config: {
   dims?: number;
 }) {
   _client = createEmbedClient(config);
+  return _client;
 }
 
 export function getEmbedClient(): EmbedClient {
