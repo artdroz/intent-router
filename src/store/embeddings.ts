@@ -1,4 +1,5 @@
 import { eq, and, sql } from "drizzle-orm";
+import { createHash } from "node:crypto";
 import { getDb } from "./db.js";
 import { embeddings as embeddingsTable } from "./schema.js";
 import type { EmbeddingRow, NewEmbedding } from "./schema.js";
@@ -24,10 +25,24 @@ const SEARCH_COLUMNS = {
   source: embeddingsTable.source,
 };
 
-export async function insertMany(rows: NewEmbedding[]) {
+/** Input rows without contentHash — computed internally. */
+export type NewEmbeddingInput = Omit<NewEmbedding, "contentHash">;
+
+function hashContent(content: string): string {
+  return createHash("sha256").update(content).digest("hex");
+}
+
+/**
+ * Bulk insert embeddings, deduplicated by (classId, contentHash).
+ * Duplicate rows are silently skipped via ON CONFLICT DO NOTHING.
+ */
+export async function insertMany(rows: NewEmbeddingInput[]) {
   if (rows.length === 0) return;
   const db = getDb();
-  await db.insert(embeddingsTable).values(rows);
+  await db
+    .insert(embeddingsTable)
+    .values(rows.map((r) => ({ ...r, contentHash: hashContent(r.content) })))
+    .onConflictDoNothing();
 }
 
 export async function deleteByClassId(classId: number, source?: string) {

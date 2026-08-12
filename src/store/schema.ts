@@ -68,10 +68,13 @@ export const embeddings = pgTable("embeddings", {
   gateName: text("gate_name").notNull(),
   label: text("label").notNull(),
   content: text("content").notNull(),
-  source: text("source").notNull().default("config"),
+  contentHash: text("content_hash").notNull(),
+  source: text("source").notNull().default("config"),   // config | feedback
   embedding: vector("embedding").notNull(),
 }, (t) => [
   index("idx_embeddings_gate").on(t.gateName),
+  // Prompt depulication: re-routed prompt can skew the ANN search
+  uniqueIndex("uq_embedding_class_content").on(t.classId, t.contentHash),
 ]);
 
 export const feedback = pgTable("feedback", {
@@ -100,4 +103,7 @@ export const routingEvents = pgTable("routing_events", {
   stage: text("stage").notNull(),             // 'keyword' | 'semantic' | 'llm'
   scores: jsonb("scores").notNull(),          // { label: score, ... }
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+}, (t) => [
+  index("idx_routing_gate").on(t.gateId),
+  index("idx_feedback_route").on(t.routeId),
+]);

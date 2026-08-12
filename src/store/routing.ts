@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "./db.js";
-import { routingEvents, feedback as feedbackTable, classes as classesTable } from "./schema.js";
+import { routingEvents, feedback as feedbackTable, classes as classesTable, gates as gatesTable } from "./schema.js";
 import type { NewRoutingEvent } from "./schema.js";
 
 export async function insertRouteEvent(event: NewRoutingEvent) {
@@ -36,13 +36,17 @@ export async function replacePromotedKeywords(classId: number, keywords: string[
     .where(eq(classesTable.id, classId));
 }
 
-/** Get all gate IDs that have feedback. */
+/** Get all gate IDs that have feedback. 
+ * Filter by enabled gates to avoid wasting compute on same result in cron jobs.
+ */
 export async function getGateIdsWithFeedback() {
   const db = getDb();
   const rows = await db
     .selectDistinct({ gateId: routingEvents.gateId })
     .from(routingEvents)
-    .innerJoin(feedbackTable, eq(feedbackTable.routeId, routingEvents.routeId));
+    .innerJoin(feedbackTable, eq(feedbackTable.routeId, routingEvents.routeId))
+    .innerJoin(gatesTable, eq(gatesTable.id, routingEvents.gateId))
+    .where(eq(gatesTable.enabled, 1));
   return rows.map((r) => r.gateId);
 }
 

@@ -70,39 +70,45 @@ export async function submitFeedback(
   const tokens = tokenize(event.prompt);
   const keywords = [...tokens].filter((t) => t.length > 2);
 
-  // Embedding feedback: store positives, NN-delete on negatives
-  const embedding = await getEmbedClient().embed(event.prompt);
-  const predictedClass = await gateStore.getClassById(event.predictedClassId);
-
-  if (input.positive) {
-    if (predictedClass) {
-      await embeddingsStore.insertMany([{
-        classId: event.predictedClassId,
-        gateName: predictedClass.gateName,
-        label: predictedClass.label,
-        content: event.prompt,
-        source: "feedback",
-        embedding,
-      }]);
-    }
-  } else {
-    // Delete nearest non-config embedding
-    const nearest = await embeddingsStore.searchByClassId(
-      event.predictedClassId,
-      embedding,
-      20,
-    );
-    const toDelete = nearest.find((r) => r.source !== "config");
-    if (toDelete) {
-      await embeddingsStore.deleteById(toDelete.id);
-    }
-  }
-
+  // Persist feedback FIRST — audit trail must survive embedding failures
   await routingStore.insertFeedback(
     input.routeId,
     input.positive ? 1 : 0,
     keywords.length > 0 ? keywords : undefined,
   );
+
+  // Embedding feedback: store positives, NN-delete on negatives
+  try {
+    const embedding = await getEmbedClient().embed(event.prompt);
+    const predictedClass = await gateStore.getClassById(event.predictedClassId);
+
+    if (input.positive) {
+      if (predictedClass) {
+        await embeddingsStore.insertMany([{
+          classId: event.predictedClassId,
+          gateName: predictedClass.gateName,
+          label: predictedClass.label,
+          content: event.prompt,
+          source: "feedback",
+          embedding,
+        }]);
+      }
+    } else {
+      // Delete nearest non-config embedding
+      const nearest = await embeddingsStore.searchByClassId(
+        event.predictedClassId,
+        embedding,
+        20,
+      );
+      const toDelete = nearest.find((r) => r.source !== "config");
+      if (toDelete) {
+        await embeddingsStore.deleteById(toDelete.id);
+      }
+    }
+  } catch (err) {
+    // Feedback already persisted; embedding learning is best-effort
+    console.warn("Embedding feedback failed:", err);
+  }
 }
 
 /**
