@@ -65,6 +65,15 @@ export async function getGateById(id: number) {
   return { gate, classes: gateClasses };
 }
 
+export async function getClassById(id: number) {
+  const db = getDb();
+  const [row] = await db
+    .select()
+    .from(classesTable)
+    .where(eq(classesTable.id, id));
+  return row ?? null;
+}
+
 /** Check if a gate name is taken (both enabled or disabled). */
 export async function gateNameExists(apiKeyId: number, name: string) {
   const db = getDb();

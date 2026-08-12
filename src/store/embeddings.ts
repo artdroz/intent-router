@@ -5,7 +5,7 @@ import type { EmbeddingRow, NewEmbedding } from "./schema.js";
 
 export type { EmbeddingRow, NewEmbedding };
 
-export interface SearchResult {
+export type SearchResult = {
   id: number;
   classId: number;
   gateName: string;
@@ -74,4 +74,31 @@ export async function getByClassId(
     .select()
     .from(embeddingsTable)
     .where(and(...conditions));
+}
+
+/**
+ * ANN search: find top-K nearest embeddings within a class.
+ */
+export async function searchByClassId(
+  classId: number,
+  embedding: number[],
+  topK: number,
+): Promise<SearchResult[]> {
+  const db = getDb();
+  const vectorStr = `[${embedding.join(",")}]`;
+
+  return db
+    .select({
+      ...SEARCH_COLUMNS,
+      distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
+    })
+    .from(embeddingsTable)
+    .where(eq(embeddingsTable.classId, classId))
+    .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
+    .limit(topK);
+}
+
+export async function deleteById(id: number) {
+  const db = getDb();
+  await db.delete(embeddingsTable).where(eq(embeddingsTable.id, id));
 }
