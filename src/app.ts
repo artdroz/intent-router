@@ -1,8 +1,9 @@
 import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
-import { initDb, runMigrations } from "./store/db.js";
+import { initDb } from "./store/db.js";
 import { authPlugin } from "./auth/plugin.js";
+import { healthRoutes } from "./health/routes.js";
 import { gateRoutes } from "./gates/routes.js";
 import { initEmbedClient } from "./lib/embed-client.js";
 import { createLlmClient } from "./lib/llm-client.js";
@@ -51,21 +52,20 @@ export async function buildApp() {
 
   // Database
   initDb(app.config.DATABASE_URL);
-  await runMigrations();
 
   // CORS
   await app.register(fastifyCors);
 
-  // Health check
-  app.get("/health", async () => ({ status: "ok" }));
+  // Public health endpoints (registered before auth so they stay unauthenticated)
+  await app.register(healthRoutes);
 
-  // Auth
+  // Auth — protects every route registered after this point
   await app.register(authPlugin);
 
   // LLM client
   const llm = createLlmClient({
     baseUrl: app.config.LLM_BASE_URL,
-    model: app.config.LLM_MODEL, 
+    model: app.config.LLM_MODEL,
     apiKey: app.config.LLM_API_KEY,
   });
 

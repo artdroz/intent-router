@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import fp from "fastify-plugin";
 import { getDb } from "../store/db.js";
 import { apiKeys } from "../store/schema.js";
 import { eq } from "drizzle-orm";
@@ -10,7 +11,9 @@ declare module "fastify" {
   }
 }
 
-export async function authPlugin(app: FastifyInstance) {
+// `fp` breaks encapsulation so the onRequest hook and request decoration apply
+// to every route registered after this plugin (i.e. the actual API routes).
+export const authPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest("apiKeyId", 0);
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -40,4 +43,4 @@ export async function authPlugin(app: FastifyInstance) {
 
     req.apiKeyId = row.id;
   });
-}
+});
