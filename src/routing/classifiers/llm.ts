@@ -10,22 +10,21 @@ export class LlmClassifier implements Classifier {
 
   async classify(prompt: string, gate: Gate): Promise<ClassificationResult> {
     const labels = gate.classes.map((c) => c.label);
-    const isBinary = gate.classes.length === 1;
-    const expectedLabels = isBinary ? [...labels, "none"] : labels;
 
     const answer = await this.llmClient.complete(
       [
-        { role: "system", content: buildSystemPrompt(gate, isBinary) },
+        { role: "system", content: buildSystemPrompt(gate) },
         { role: "user", content: prompt },
       ],
-      { type: "json_schema", json_schema: buildSchema(expectedLabels) },
+      { type: "json_schema", json_schema: buildSchema(labels) },
     );
 
-    return parseResponse(answer, labels, isBinary);
+    const { scores, evidence } = parseResponse(answer, labels);
+    return { classifier: "llm", entries: buildResult(scores, evidence) };
   }
 }
 
-function buildSystemPrompt(gate: Gate, isBinary: boolean): string {
+export function buildSystemPrompt(gate: Gate): string {
   const labelDescriptions = gate.classes
     .map((c) => `- "${c.label}": ${c.description ?? "No description"}`)
     .join("\n");
@@ -45,15 +44,12 @@ function buildSystemPrompt(gate: Gate, isBinary: boolean): string {
     "- EVERY label MUST appear in distribution.",
     "- All values MUST sum to exactly 1.0.",
     "- Output ONLY the JSON object, nothing else.",
-    isBinary
-      ? `- Include "none" for non-match: {"distribution":{"${gate.classes[0].label}":0.0,"none":1.0}}`
-      : "",
   ].join("\n");
 }
 
-function buildSchema(expectedLabels: string[]) {
+export function buildSchema(labels: string[]) {
   const properties: Record<string, { type: "number" }> = {};
-  for (const label of expectedLabels) {
+  for (const label of labels) {
     properties[label] = { type: "number" };
   }
 
@@ -67,7 +63,7 @@ function buildSchema(expectedLabels: string[]) {
         distribution: {
           type: "object" as const,
           properties,
-          required: expectedLabels,
+          required: labels,
           additionalProperties: false,
         },
       },
@@ -77,7 +73,14 @@ function buildSchema(expectedLabels: string[]) {
   };
 }
 
-function parseResponse(raw: string, labels: string[], isBinary: boolean): ClassificationResult {
+/**
+ * Parse the LLM's JSON answer into raw per-label scores and evidence.
+ */
+export function parseResponse(
+  raw: string,
+  labels: string[],
+): { scores: Map<string, number>; evidence: Map<string, string[]> } {
+  // Strip markdown code fences the model sometimes wraps the JSON in.
   const cleaned = raw
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/, "")
@@ -87,24 +90,23 @@ function parseResponse(raw: string, labels: string[], isBinary: boolean): Classi
   try {
     parsed = JSON.parse(cleaned);
   } catch {
-    return { classifier: "llm", entries: new Map() };
+    return { scores: new Map(), evidence: new Map() };
   }
 
   const dist = parsed.distribution;
-  if (!dist || typeof dist !== "object") return { classifier: "llm", entries: new Map() };
-
-  const expected = isBinary ? [...labels, "none"] : labels;
+  if (!dist || typeof dist !== "object") return { scores: new Map(), evidence: new Map() };
 
   const scores = new Map<string, number>();
   const evidence = new Map<string, string[]>();
+  // One shared reasoning sentence becomes the evidence for every label.
   const reasonText = parsed.reasoning || "No reasoning provided.";
 
-  for (const label of expected) {
-    if (isBinary && label === "none") continue;
-    const raw = Math.max(0, typeof dist[label] === "number" ? dist[label] : 0);
-    scores.set(label, raw);
+  for (const label of labels) {
+    // Clamp negatives to 0 and treat missing/non-numeric values as 0.
+    const score = Math.max(0, typeof dist[label] === "number" ? dist[label] : 0);
+    scores.set(label, score);
     evidence.set(label, [reasonText]);
   }
 
-  return { classifier: "llm", entries: buildResult(scores, evidence) };
+  return { scores, evidence };
 }

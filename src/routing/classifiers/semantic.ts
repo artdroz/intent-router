@@ -39,10 +39,16 @@ export class SemanticClassifier implements Classifier {
   async classify(prompt: string, gate: Gate): Promise<ClassificationResult> {
     const embedding = await this.embedClient.embed(prompt);
     const rows = await searchByGate(gate.name, embedding, this.topK);
-    return this.aggregate(rows);
+    return aggregateSemantic(
+      rows,
+      this.similarityThreshold,
+      this.configWeight,
+      this.feedbackWeight,
+    );
   }
+}
 
-  /**
+/**
    * Aggregate global ANN results into per-class normalized probabilities.
    *
    * 1. Convert distance → similarity (1 - distance)
@@ -50,23 +56,29 @@ export class SemanticClassifier implements Classifier {
    * 3. Sum weighted similarities per class
    * 4. Normalize each sum by total → [0, 1]
    */
-  private aggregate(rows: SearchResult[]): ClassificationResult {
-    const scores = new Map<string, number>();
-    const evidence = new Map<string, string[]>();
+export function aggregateSemantic(
+  rows: SearchResult[],
+  similarityThreshold: number,
+  configWeight: number,
+  feedbackWeight: number,
+): ClassificationResult {
+  const scores = new Map<string, number>();
+  const evidence = new Map<string, string[]>();
 
-    for (const row of rows) {
-      if (row.distance < this.similarityThreshold) {
-        continue;
-      }
-      const multiplier = row.source === "config" ? this.configWeight : this.feedbackWeight;
-      const sim = (1 - row.distance) * multiplier;
-      scores.set(row.label, (scores.get(row.label) ?? 0) + sim);
+  for (const row of rows) {
+    // pgvector `<=>` returns cosine DISTANCE (0 = identical, 2 = opposite).
+    // Convert to similarity first, then apply the similarity threshold.
+    const sim = 1 - row.distance;
+    if (sim < similarityThreshold) continue;
 
-      const list = evidence.get(row.label) ?? [];
-      list.push(row.content);
-      evidence.set(row.label, list);
-    }
+    const multiplier = row.source === "config" ? configWeight : feedbackWeight;
+    const weighted = sim * multiplier;
+    scores.set(row.label, (scores.get(row.label) ?? 0) + weighted);
 
-    return { classifier: "semantic", entries: buildResult(scores, evidence) };
+    const list = evidence.get(row.label) ?? [];
+    list.push(row.content);
+    evidence.set(row.label, list);
   }
+
+  return { classifier: "semantic", entries: buildResult(scores, evidence) };
 }

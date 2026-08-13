@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { GATE_MAX_CLASSES, GATE_MIN_CLASSES } from "./config.js";
 
 export const gateConfigSchema = z.object({
   learningEnabled: z.boolean(),
@@ -22,7 +23,10 @@ export const createGateSchema = z.object({
   name: z.string().min(2).max(100),
   description: z.string().max(500).optional(),
   config: gateConfigSchema,
-  classes: z.array(addClassSchema),
+  classes: z
+  .array(addClassSchema)
+  .min(GATE_MIN_CLASSES, `Gate must have at least ${GATE_MIN_CLASSES} classes`)
+  .max(GATE_MAX_CLASSES, `Gate cannot have more than ${GATE_MAX_CLASSES} classes`)
 });
 
 export const updateGateSchema = z.object({

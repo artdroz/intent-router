@@ -34,12 +34,12 @@ export function computeEntropy(entries: Map<string, ClassificationEntry>): numbe
   return entropy;
 }
 
-/** Pick the highest-probability label. */
+/** Pick the highest-probability label, or null when there is no confident winner. */
 export function pickBestLabel(entries: Map<string, ClassificationEntry>): {
-  label: string;
+  label: string | null;
   score: number;
 } {
-  let bestLabel = "";
+  let bestLabel: string | null = null;
   let bestScore = 0;
 
   for (const [label, entry] of entries) {

@@ -74,7 +74,7 @@ export function scoreClassKeywords(
   }
 
   return [...tfIdf.entries()]
-    .filter(([, score]) => score >= scoreThreshold)
+    .filter(([, score]) => score > scoreThreshold)
     .sort((a, b) => b[1] - a[1])
     .slice(0, maxPerClass)
     .map(([kw]) => kw);

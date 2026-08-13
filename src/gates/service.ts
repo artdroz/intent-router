@@ -1,6 +1,7 @@
 import * as store from "../store/gates.js";
 import * as embeddingsStore from "../store/embeddings.js";
 import { getEmbedClient } from "../lib/embed-client.js";
+import { GATE_MAX_CLASSES, GATE_MIN_CLASSES } from "./config.js";
 import type {
   CreateGateInput,
   UpdateGateInput,
@@ -115,8 +116,8 @@ export async function deleteClass(
 ): Promise<void> {
   const existing = await store.getGateByName(apiKeyId, gateName);
   if (!existing) throw new Error(`Gate "${gateName}" not found`);
-  if (existing.classes.length <= 2) {
-    throw new Error(`Gate "${gateName}" must have at least two classes`);
+  if (existing.classes.length <= GATE_MIN_CLASSES) {
+    throw new Error(`Gate "${gateName}" must have at least ${GATE_MIN_CLASSES} classes`);
   }
 
   const result = await store.deleteClass(apiKeyId, gateName, label);
@@ -151,11 +152,11 @@ async function assertGateNameAvailable(apiKeyId: number, name: string) {
 }
 
 export function assertValidClasses(classes: { label: string; utterances?: string[] | null }[]) {
-  if (classes.length < 2) {
-    throw new Error("Gate must have at least two classes");
+  if (classes.length < GATE_MIN_CLASSES) {
+    throw new Error(`Gate must have at least ${GATE_MIN_CLASSES} classes`);
   }
-  if (classes.length > 50) {
-    throw new Error("Gate cannot have more than 50 classes");
+  if (classes.length > GATE_MAX_CLASSES) {
+    throw new Error(`Gate cannot have more than ${GATE_MAX_CLASSES} classes`);
   }
 
   const seen = new Set<string>();

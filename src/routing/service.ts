@@ -62,8 +62,31 @@ export async function route(
   return { routeId, result };
 }
 
-export async function submitFeedback(input: FeedbackInput): Promise<void> {
-  const event = await routingStore.getRouteByRouteId(input.routeId);
+export type FeedbackDeps = {
+  getRouteByRouteId: typeof routingStore.getRouteByRouteId;
+  insertFeedback: typeof routingStore.insertFeedback;
+  getClassById: typeof gateStore.getClassById;
+  embed: (text: string) => Promise<number[]>;
+  insertMany: typeof embeddingsStore.insertMany;
+  searchByClassId: typeof embeddingsStore.searchByClassId;
+  deleteById: typeof embeddingsStore.deleteById;
+};
+
+const defaultFeedbackDeps: FeedbackDeps = {
+  getRouteByRouteId: routingStore.getRouteByRouteId,
+  insertFeedback: routingStore.insertFeedback,
+  getClassById: gateStore.getClassById,
+  embed: (text) => getEmbedClient().embed(text),
+  insertMany: embeddingsStore.insertMany,
+  searchByClassId: embeddingsStore.searchByClassId,
+  deleteById: embeddingsStore.deleteById,
+};
+
+export async function submitFeedback(
+  input: FeedbackInput,
+  deps: FeedbackDeps = defaultFeedbackDeps,
+): Promise<void> {
+  const event = await deps.getRouteByRouteId(input.routeId);
   if (!event) throw new Error(`Route "${input.routeId}" not found`);
 
   // Keyword extraction; noise filtering happens in the cron via TF-IDF scoring.
@@ -71,24 +94,28 @@ export async function submitFeedback(input: FeedbackInput): Promise<void> {
   const keywords = [...tokens].filter((t) => t.length > 2);
 
   // Persist feedback FIRST — audit trail must survive embedding failures
-  await routingStore.insertFeedback(
+  await deps.insertFeedback(
     input.routeId,
     input.positive ? 1 : 0,
     keywords.length > 0 ? keywords : undefined,
   );
 
-  await applyEmbeddingFeedback(event, input);
+  await applyEmbeddingFeedback(event, input, deps);
 }
 
-async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInput): Promise<void> {
+async function applyEmbeddingFeedback(
+  event: RoutingEventRow,
+  input: FeedbackInput,
+  deps: FeedbackDeps,
+): Promise<void> {
   try {
-    const embedding = await getEmbedClient().embed(event.prompt);
-    const predictedClass = await gateStore.getClassById(event.predictedClassId);
+    const embedding = await deps.embed(event.prompt);
+    const predictedClass = await deps.getClassById(event.predictedClassId);
 
     // Store positives
     if (input.positive) {
       if (predictedClass) {
-        await embeddingsStore.insertMany([
+        await deps.insertMany([
           {
             classId: event.predictedClassId,
             gateName: predictedClass.gateName,
@@ -103,10 +130,10 @@ async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInp
     }
 
     // NN-delete the nearest non-config embedding
-    const nearest = await embeddingsStore.searchByClassId(event.predictedClassId, embedding, 20);
+    const nearest = await deps.searchByClassId(event.predictedClassId, embedding, 20);
     const toDelete = nearest.find((r) => r.source !== "config");
     if (toDelete) {
-      await embeddingsStore.deleteById(toDelete.id);
+      await deps.deleteById(toDelete.id);
     }
   } catch (err) {
     // Feedback already persisted; embedding learning is best-effort

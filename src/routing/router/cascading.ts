@@ -23,12 +23,22 @@ export type CascadeOptions = {
 export class CascadingRouter implements Router {
   readonly name = "cascade";
 
+  private readonly kwWeight: number;
+  private readonly semWeight: number;
+  private readonly marginThreshold: number;
+  private readonly entropyThreshold: number;
+
   constructor(
     private keyword: KeywordClassifier,
     private semantic: SemanticClassifier,
     private llm: LlmClassifier,
     private options: CascadeOptions = {},
-  ) {}
+  ) {
+    this.kwWeight = this.options.kwWeight ?? CAS_KW_WEIGHT;
+    this.semWeight = this.options.semWeight ?? CAS_SEM_WEIGHT;
+    this.marginThreshold = this.options.marginThreshold ?? CAS_MARGIN_THRESHOLD;
+    this.entropyThreshold = this.options.entropyThreshold ?? CAS_ENTROPY_THRESHOLD;
+  }
 
   async route(prompt: string, gate: Gate): Promise<RouteResult> {
     // 1. Run keyword + semantic in parallel
@@ -38,53 +48,69 @@ export class CascadingRouter implements Router {
     ]);
 
     // 2. Aggregate weighted scores
-    const aggregated = this.aggregate(kwResult, semResult, gate);
+    const aggregated = aggregatePrecascade(kwResult, semResult, gate, this.kwWeight, this.semWeight);
     const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
 
     const margin = computeMargin(sorted);
     const entropy = computeEntropy(aggregated);
-    const scores = entriesToScores(aggregated);
+    const preCascadeResult: RouteResult = {
+      label: sorted[0][0],
+      score: sorted[0][1].prob,
+      stage: "pre-cascade",
+      scores: entriesToScores(aggregated),
+    };
 
-    if (!this.shouldCascade(margin, entropy)) {
-      return { label: sorted[0][0], score: sorted[0][1].prob, stage: "pre-cascade", scores };
+    if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
+      return preCascadeResult;
     }
 
     // 3. Low confidence — fall back to LLM
-    return this.runLlmFallback(prompt, gate);
+    return this.runLlmFallback(prompt, gate, preCascadeResult);
   }
 
-  private shouldCascade(margin: number, entropy: number): boolean {
-    const marginThreshold = this.options.marginThreshold ?? CAS_MARGIN_THRESHOLD;
-    const entropyThreshold = this.options.entropyThreshold ?? CAS_ENTROPY_THRESHOLD;
-    return margin < marginThreshold || entropy > entropyThreshold;
-  }
-
-  private async runLlmFallback(prompt: string, gate: Gate): Promise<RouteResult> {
+  private async runLlmFallback(
+    prompt: string,
+    gate: Gate,
+    preCascade: RouteResult,
+  ): Promise<RouteResult> {
     const llmResult = await this.llm.classify(prompt, gate);
     const { label, score } = pickBestLabel(llmResult.entries);
+
+    // LLM produced no usable answer — degrade gracefully to pre-cascade
+    if (label === null) return preCascade;
+
     return { label, score, stage: "llm", scores: entriesToScores(llmResult.entries) };
   }
+}
 
-  /** Aggregate weighted sum of keyword + semantic probabilities. */
-  private aggregate(
-    kw: ClassificationResult,
-    sem: ClassificationResult,
-    gate: Gate,
-  ): Map<string, ClassificationEntry> {
-    const kwWeight = this.options.kwWeight ?? CAS_KW_WEIGHT;
-    const semWeight = this.options.semWeight ?? CAS_SEM_WEIGHT;
+/** Decide whether pre-cascade confidence is too low and should fall back to LLM. */
+export function shouldCascade(
+  margin: number,
+  entropy: number,
+  marginThreshold: number,
+  entropyThreshold: number,
+): boolean {
+  return margin < marginThreshold || entropy > entropyThreshold;
+}
 
-    const scores = new Map<string, number>();
-    const evidence = new Map<string, string[]>();
+/** Aggregate weighted sum of keyword + semantic probabilities across all gate classes. */
+export function aggregatePrecascade(
+  kw: ClassificationResult,
+  sem: ClassificationResult,
+  gate: Gate,
+  kwWeight: number,
+  semWeight: number,
+): Map<string, ClassificationEntry> {
+  const scores = new Map<string, number>();
+  const evidence = new Map<string, string[]>();
 
-    for (const label of gate.classes.map((c) => c.label)) {
-      const entry = scoreClass(kw.entries.get(label), sem.entries.get(label), kwWeight, semWeight);
-      scores.set(label, entry.prob);
-      evidence.set(label, entry.evidence);
-    }
-
-    return buildResult(scores, evidence);
+  for (const label of gate.classes.map((c) => c.label)) {
+    const entry = scoreClass(kw.entries.get(label), sem.entries.get(label), kwWeight, semWeight);
+    scores.set(label, entry.prob);
+    evidence.set(label, entry.evidence);
   }
+
+  return buildResult(scores, evidence);
 }
 
 /** Calculate weighted per-class score with keyword-gating boost (before normalization). */
@@ -97,9 +123,10 @@ export function scoreClass(
   const kwScore = kwEntry?.prob ?? 0;
   const semScore = semEntry?.prob ?? 0;
 
-  // When keyword classifier matched tokens for it, boost the score
-  const hasKeywordMatch = (kwEntry?.evidence?.length ?? 0) > 0;
-  const gateMultiplier = hasKeywordMatch ? CAS_KEYWORD_GATE_BOOST : 1.0;
+  // When keyword classifier has any matches, multiplies the entire combined score
+  // by a multiplier scaled by keyword strength instead of just presence.
+  // This multiplier also amplifies the semantic signal, which increase overall confidence.
+  const gateMultiplier = 1 + (CAS_KEYWORD_GATE_BOOST - 1) * kwScore;
 
   const weighted = (kwScore * kwWeight + semScore * semWeight) * gateMultiplier;
   return {
