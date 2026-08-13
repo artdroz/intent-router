@@ -1,6 +1,11 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "./db.js";
-import { routingEvents, feedback as feedbackTable, classes as classesTable, gates as gatesTable } from "./schema.js";
+import {
+  routingEvents,
+  feedback as feedbackTable,
+  classes as classesTable,
+  gates as gatesTable,
+} from "./schema.js";
 import type { NewRoutingEvent } from "./schema.js";
 
 export async function insertRouteEvent(event: NewRoutingEvent) {
@@ -20,10 +25,7 @@ export async function insertFeedback(
 /** Get a route event by its public ID (for feedback linking). */
 export async function getRouteByRouteId(routeId: string) {
   const db = getDb();
-  const [row] = await db
-    .select()
-    .from(routingEvents)
-    .where(eq(routingEvents.routeId, routeId));
+  const [row] = await db.select().from(routingEvents).where(eq(routingEvents.routeId, routeId));
   return row ?? null;
 }
 
@@ -36,7 +38,7 @@ export async function replacePromotedKeywords(classId: number, keywords: string[
     .where(eq(classesTable.id, classId));
 }
 
-/** Get all gate IDs that have feedback. 
+/** Get all gate IDs that have feedback.
  * Filter by enabled gates to avoid wasting compute on same result in cron jobs.
  */
 export async function getGateIdsWithFeedback() {
@@ -66,3 +68,6 @@ export async function getFeedbackCorpusByGate(gateId: number) {
     .innerJoin(routingEvents, eq(feedbackTable.routeId, routingEvents.routeId))
     .where(eq(routingEvents.gateId, gateId));
 }
+
+/** Row shape returned by {@link getFeedbackCorpusByGate}. */
+export type FeedbackCorpusRow = Awaited<ReturnType<typeof getFeedbackCorpusByGate>>[number];

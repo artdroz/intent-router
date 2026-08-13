@@ -13,6 +13,6 @@ export type ClassificationResult = {
 };
 
 export type ClassificationEntry = {
-  prob: number;              // [0, 1] — proportional probability normalized across classes
-  evidence: string[];        // utterances, keywords, or reasoning text
+  prob: number; // [0, 1] — proportional probability normalized across classes
+  evidence: string[]; // utterances, keywords, or reasoning text
 };

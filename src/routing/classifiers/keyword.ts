@@ -1,7 +1,7 @@
 import type { Classifier, ClassificationResult } from "./types.js";
 import type { Gate } from "../../gates/types.js";
 import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT } from "../config.js";
-import { buildResult } from "./utils.js";
+import { buildResult } from "../utils.js";
 
 export type KeywordOptions = {
   configWeight?: number;
@@ -30,7 +30,8 @@ export class KeywordClassifier implements Classifier {
       const configTotal = c.keywords.length;
       const feedbackTotal = c.promotedKeywords.length;
 
-      const weightedHits = configMatched.length * this.configWeight + promotedMatched.length * this.feedbackWeight;
+      const weightedHits =
+        configMatched.length * this.configWeight + promotedMatched.length * this.feedbackWeight;
       const weightedTotal = configTotal * this.configWeight + feedbackTotal * this.feedbackWeight;
       const score = weightedTotal > 0 ? weightedHits / weightedTotal : 0;
 
@@ -38,7 +39,7 @@ export class KeywordClassifier implements Classifier {
       evidence.set(c.label, [...configMatched, ...promotedMatched]);
     }
 
-    return buildResult("keyword", scores, evidence);
+    return { classifier: "keyword", entries: buildResult(scores, evidence) };
   }
 }
 

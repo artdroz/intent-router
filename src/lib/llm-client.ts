@@ -13,10 +13,7 @@ export type LlmResponseFormat =
     };
 
 export type LlmClient = {
-  complete(
-    messages: LlmMessage[],
-    responseFormat?: LlmResponseFormat,
-  ): Promise<string>;
+  complete(messages: LlmMessage[], responseFormat?: LlmResponseFormat): Promise<string>;
 };
 
 export function createLlmClient(config: {

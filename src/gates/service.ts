@@ -1,13 +1,18 @@
 import * as store from "../store/gates.js";
 import * as embeddingsStore from "../store/embeddings.js";
 import { getEmbedClient } from "../lib/embed-client.js";
-import type { CreateGateInput, UpdateGateInput, UpdateClassInput, AddClassInput } from "./schema.js";
+import type {
+  CreateGateInput,
+  UpdateGateInput,
+  UpdateClassInput,
+  AddClassInput,
+} from "./schema.js";
 import type { Gate, GateClass } from "./types.js";
 import type { GateRow, ClassRow } from "../store/schema.js";
 
 export async function createGate(apiKeyId: number, input: CreateGateInput): Promise<Gate> {
   assertValidClasses(input.classes);
-  await assertValidGateName(apiKeyId, input.name);
+  await assertGateNameAvailable(apiKeyId, input.name);
 
   const raw = await store.createGate(apiKeyId, input);
   if (!raw) throw new Error("Failed to create gate");
@@ -34,7 +39,7 @@ export async function updateGate(
   name: string,
   input: UpdateGateInput,
 ): Promise<Gate> {
-  if (input.name) await assertValidGateName(apiKeyId, input.name);
+  if (input.name) await assertGateNameAvailable(apiKeyId, input.name);
   const raw = await store.updateGate(apiKeyId, name, input);
   if (!raw) throw new Error(`Gate "${name}" not found`);
   return toGate(raw);
@@ -55,7 +60,7 @@ export async function updateClass(
   // Label rename must not collide
   if (input.label && input.label !== label) {
     if (existing.classes.some((c) => c.label === input.label)) {
-      throw new Error(`Class "${input.label}" already exists in gate "${gateName}"`);
+      throw new Error(`Duplicate class label "${input.label}" in gate "${gateName}"`);
     }
   }
   // Utterances must not be wiped
@@ -67,10 +72,11 @@ export async function updateClass(
   const raw = await store.updateClass(apiKeyId, gateName, label, input);
   if (!raw) throw new Error(`Gate "${gateName}" or class "${label}" not found`);
 
-  // Re-index if utterances changed
+  // Re-index if utterances changed: embed first (slow API, outside tx),
+  // then atomically replace old config embeddings with new ones.
   if (input.utterances) {
-    await embeddingsStore.deleteByClassId(raw.id, "config");
-    await indexClassUtterances(raw.id, gateName, raw.label, raw.utterances);
+    const rows = await buildEmbeddingRows(raw.id, gateName, raw.label, raw.utterances);
+    await embeddingsStore.replaceClassEmbeddings(raw.id, "config", rows);
   }
 
   return toGateClass(raw);
@@ -89,7 +95,10 @@ export async function addClass(
   const existing = await store.getGateByName(apiKeyId, gateName);
   if (!existing) throw new Error(`Gate "${gateName}" not found`);
 
-  assertValidClasses([...existing.classes.map(toGateClass), { label: input.label, utterances: input.utterances }]);
+  assertValidClasses([
+    ...existing.classes.map(toGateClass),
+    { label: input.label, utterances: input.utterances },
+  ]);
 
   const raw = await store.addClass(apiKeyId, gateName, input);
   if (!raw) throw new Error(`Failed to add class "${input.label}"`);
@@ -135,12 +144,13 @@ function toGateClass(c: ClassRow): GateClass {
   };
 }
 
-async function assertValidGateName(apiKeyId: number, name: string) {
+async function assertGateNameAvailable(apiKeyId: number, name: string) {
   const exists = await store.gateNameExists(apiKeyId, name);
-  if (exists) throw new Error(`Gate "${name}" already exists (or is disabled — names cannot be reused)`);
+  if (exists)
+    throw new Error(`Gate "${name}" already exists (or is disabled — names cannot be reused)`);
 }
 
-function assertValidClasses(classes: { label: string; utterances?: string[] | null }[]) {
+export function assertValidClasses(classes: { label: string; utterances?: string[] | null }[]) {
   if (classes.length < 2) {
     throw new Error("Gate must have at least two classes");
   }
@@ -160,15 +170,15 @@ function assertValidClasses(classes: { label: string; utterances?: string[] | nu
   }
 }
 
-async function indexClassUtterances(
+/** Embed utterances into NewEmbeddingInput rows (no DB write). */
+async function buildEmbeddingRows(
   classId: number,
   gateName: string,
   label: string,
   utterances: string[],
 ) {
-  if (utterances.length === 0) return;
   const embedClient = getEmbedClient();
-  const rows = await Promise.all(
+  return Promise.all(
     utterances.map(async (text) => ({
       classId,
       gateName,
@@ -178,5 +188,15 @@ async function indexClassUtterances(
       embedding: await embedClient.embed(text),
     })),
   );
+}
+
+async function indexClassUtterances(
+  classId: number,
+  gateName: string,
+  label: string,
+  utterances: string[],
+) {
+  if (utterances.length === 0) return;
+  const rows = await buildEmbeddingRows(classId, gateName, label, utterances);
   await embeddingsStore.insertMany(rows);
 }

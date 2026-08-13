@@ -14,7 +14,7 @@ export type SearchResult = {
   content: string;
   source: string;
   distance: number;
-}
+};
 
 const SEARCH_COLUMNS = {
   id: embeddingsTable.id,
@@ -45,11 +45,27 @@ export async function insertMany(rows: NewEmbeddingInput[]) {
     .onConflictDoNothing();
 }
 
-export async function deleteByClassId(classId: number, source?: string) {
+/**
+ * Atomically replace all embeddings of a class+source with a fresh set.
+ * Used when re-indexing config utterances: delete old + insert new in one transaction.
+ */
+export async function replaceClassEmbeddings(
+  classId: number,
+  source: string,
+  rows: NewEmbeddingInput[],
+) {
   const db = getDb();
-  const conditions = [eq(embeddingsTable.classId, classId)];
-  if (source) conditions.push(eq(embeddingsTable.source, source));
-  await db.delete(embeddingsTable).where(and(...conditions));
+  await db.transaction(async (tx) => {
+    await tx
+      .delete(embeddingsTable)
+      .where(and(eq(embeddingsTable.classId, classId), eq(embeddingsTable.source, source)));
+
+    if (rows.length > 0) {
+      await tx
+        .insert(embeddingsTable)
+        .values(rows.map((r) => ({ ...r, contentHash: hashContent(r.content) })));
+    }
+  });
 }
 
 /**
@@ -75,20 +91,6 @@ export async function searchByGate(
     .limit(topK);
 
   return rows;
-}
-
-export async function getByClassId(
-  classId: number,
-  source?: string,
-): Promise<EmbeddingRow[]> {
-  const db = getDb();
-  const conditions = [eq(embeddingsTable.classId, classId)];
-  if (source) conditions.push(eq(embeddingsTable.source, source));
-
-  return db
-    .select()
-    .from(embeddingsTable)
-    .where(and(...conditions));
 }
 
 /**

@@ -1,6 +1,6 @@
 const MODEL_DIMS: Record<string, number> = {
   "all-minilm": 384,
-  "embeddinggemma": 768,
+  embeddinggemma: 768,
   "nomic-embed-text": 768,
   "qwen3-embedding:0.6b": 1024,
   "text-embedding-3-small": 1536,

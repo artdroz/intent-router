@@ -12,7 +12,7 @@ export async function createApiKey(opts: { name: string; expiresInDays?: number 
 
   let raw: string;
   let hash: string;
-  
+
   // Hash generation retry
   do {
     raw = `sk-${randomUUID()}`;
@@ -48,18 +48,17 @@ export async function enableApiKey(name: string) {
   return key;
 }
 
-/** Extend the expiry of an API key. 
- *  If not expired, extend from the current expiry date. 
- *  If expired, extend from the current date. 
+/** Extend the expiry of an API key.
+ *  If not expired, extend from the current expiry date.
+ *  If expired, extend from the current date.
  */
 export async function extendApiKey(name: string, days: number) {
   assertValidExpiryDays(days);
   const key = await store.findKeyByName(name);
   if (!key) throw new Error(`Key "${name}" not found`);
 
-  const base = key.expiresAt && new Date(key.expiresAt) > new Date()
-    ? new Date(key.expiresAt)
-    : new Date();
+  const base =
+    key.expiresAt && new Date(key.expiresAt) > new Date() ? new Date(key.expiresAt) : new Date();
 
   return store.updateKey(name, { expiresAt: new Date(base.getTime() + days * 86_400_000) });
 }

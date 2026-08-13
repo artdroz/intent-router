@@ -1,7 +1,7 @@
 import type { LlmClient } from "../../lib/llm-client.js";
 import type { Gate } from "../../gates/types.js";
 import type { Classifier, ClassificationResult } from "./types.js";
-import { buildResult } from "./utils.js";
+import { buildResult } from "../utils.js";
 
 export class LlmClassifier implements Classifier {
   readonly name = "llm" as const;
@@ -77,12 +77,11 @@ function buildSchema(expectedLabels: string[]) {
   };
 }
 
-function parseResponse(
-  raw: string,
-  labels: string[],
-  isBinary: boolean,
-): ClassificationResult {
-  const cleaned = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+function parseResponse(raw: string, labels: string[], isBinary: boolean): ClassificationResult {
+  const cleaned = raw
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
 
   let parsed: { reasoning?: string; distribution?: Record<string, number> };
   try {
@@ -107,5 +106,5 @@ function parseResponse(
     evidence.set(label, [reasonText]);
   }
 
-  return buildResult("llm", scores, evidence);
+  return { classifier: "llm", entries: buildResult(scores, evidence) };
 }

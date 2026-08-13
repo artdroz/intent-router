@@ -1,11 +1,10 @@
-
 // Keyword classifier
 export const KW_CONFIG_WEIGHT = 1.2;
 export const KW_FEEDBACK_WEIGHT = 1.0;
 
 // Semantic classifier
 export const SEM_TOP_K = 10;
-export const SEM_SIMILARITY_THRESHOLD = 0.70;
+export const SEM_SIMILARITY_THRESHOLD = 0.7;
 export const SEM_CONFIG_WEIGHT = 1.2;
 export const SEM_FEEDBACK_WEIGHT = 1.0;
 

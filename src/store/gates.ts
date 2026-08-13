@@ -1,34 +1,47 @@
 import { eq, and, inArray } from "drizzle-orm";
 import { getDb } from "./db.js";
-import { gates as gatesTable, classes as classesTable, embeddings as embeddingsTable } from "./schema.js";
-import type { CreateGateInput, UpdateGateInput, UpdateClassInput, AddClassInput } from "../gates/schema.js";
+import {
+  gates as gatesTable,
+  classes as classesTable,
+  embeddings as embeddingsTable,
+} from "./schema.js";
+import type {
+  CreateGateInput,
+  UpdateGateInput,
+  UpdateClassInput,
+  AddClassInput,
+} from "../gates/schema.js";
 
 export async function createGate(apiKeyId: number, input: CreateGateInput) {
   const db = getDb();
 
-  const [gate] = await db
-    .insert(gatesTable)
-    .values({
-      apiKeyId,
-      name: input.name,
-      description: input.description ?? null,
-      config: input.config,
-    })
-    .returning();
+  const gateId = await db.transaction(async (tx) => {
+    const [gate] = await tx
+      .insert(gatesTable)
+      .values({
+        apiKeyId,
+        name: input.name,
+        description: input.description ?? null,
+        config: input.config,
+      })
+      .returning({ id: gatesTable.id });
 
-  if (input.classes.length > 0) {
-    await db.insert(classesTable).values(
-      input.classes.map((c) => ({
-        gateId: gate.id,
-        gateName: gate.name,
-        label: c.label,
-        utterances: c.utterances,
-        keywords: c.keywords ?? [],
-      })),
-    );
-  }
+    if (input.classes.length > 0) {
+      await tx.insert(classesTable).values(
+        input.classes.map((c) => ({
+          gateId: gate.id,
+          gateName: input.name,
+          label: c.label,
+          utterances: c.utterances,
+          keywords: c.keywords ?? [],
+        })),
+      );
+    }
 
-  return getGateById(gate.id);
+    return gate.id;
+  });
+
+  return getGateById(gateId);
 }
 
 export async function getGateByName(apiKeyId: number, name: string) {
@@ -36,18 +49,13 @@ export async function getGateByName(apiKeyId: number, name: string) {
   const [gate] = await db
     .select()
     .from(gatesTable)
-    .where(and(
-      eq(gatesTable.apiKeyId, apiKeyId),
-      eq(gatesTable.name, name),
-      eq(gatesTable.enabled, 1),
-    ));
+    .where(
+      and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.name, name), eq(gatesTable.enabled, 1)),
+    );
 
   if (!gate) return null;
 
-  const gateClasses = await db
-    .select()
-    .from(classesTable)
-    .where(eq(classesTable.gateId, gate.id));
+  const gateClasses = await db.select().from(classesTable).where(eq(classesTable.gateId, gate.id));
 
   return { gate, classes: gateClasses };
 }
@@ -57,20 +65,14 @@ export async function getGateById(id: number) {
   const [gate] = await db.select().from(gatesTable).where(eq(gatesTable.id, id));
   if (!gate) return null;
 
-  const gateClasses = await db
-    .select()
-    .from(classesTable)
-    .where(eq(classesTable.gateId, gate.id));
+  const gateClasses = await db.select().from(classesTable).where(eq(classesTable.gateId, gate.id));
 
   return { gate, classes: gateClasses };
 }
 
 export async function getClassById(id: number) {
   const db = getDb();
-  const [row] = await db
-    .select()
-    .from(classesTable)
-    .where(eq(classesTable.id, id));
+  const [row] = await db.select().from(classesTable).where(eq(classesTable.id, id));
   return row ?? null;
 }
 
@@ -80,10 +82,7 @@ export async function gateNameExists(apiKeyId: number, name: string) {
   const [row] = await db
     .select({ id: gatesTable.id })
     .from(gatesTable)
-    .where(and(
-      eq(gatesTable.apiKeyId, apiKeyId),
-      eq(gatesTable.name, name),
-    ));
+    .where(and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.name, name)));
   return !!row;
 }
 
@@ -116,50 +115,49 @@ export async function listGates(apiKeyId: number) {
   }));
 }
 
-export async function updateGate(
-  apiKeyId: number,
-  name: string,
-  input: UpdateGateInput,
-) {
+export async function updateGate(apiKeyId: number, name: string, input: UpdateGateInput) {
   const db = getDb();
   const existing = await getGateByName(apiKeyId, name);
   if (!existing) return null;
   const existingGate = existing.gate;
+  const newName = input.name ?? name;
 
-  if (input.name) {
-    // Update gateName in denormalized tables (classes and embeddings)
-    await db
-      .update(classesTable)
-      .set({ gateName: input.name })
-      .where(eq(classesTable.gateId, existingGate.id));
-
-    const toUpdate = await db
-      .select({ id: classesTable.id })
-      .from(classesTable)
-      .where(eq(classesTable.gateId, existingGate.id));
-    const ids = toUpdate.map((c) => c.id);
-
-    if (ids.length > 0) {
-      await db
-        .update(embeddingsTable)
+  await db.transaction(async (tx) => {
+    if (input.name) {
+      // Update gateName in denormalized tables (classes and embeddings)
+      await tx
+        .update(classesTable)
         .set({ gateName: input.name })
-        .where(inArray(embeddingsTable.classId, ids));
+        .where(eq(classesTable.gateId, existingGate.id));
+
+      const classIds = await tx
+        .select({ id: classesTable.id })
+        .from(classesTable)
+        .where(eq(classesTable.gateId, existingGate.id));
+      const ids = classIds.map((c) => c.id);
+
+      if (ids.length > 0) {
+        await tx
+          .update(embeddingsTable)
+          .set({ gateName: input.name })
+          .where(inArray(embeddingsTable.classId, ids));
+      }
     }
-  }
 
-  if (input.name || input.description !== undefined || input.config) {
-    await db
-      .update(gatesTable)
-      .set({
-        ...(input.name ? { name: input.name } : {}),
-        ...(input.description !== undefined ? { description: input.description } : {}),
-        ...(input.config ? { config: input.config } : {}),
-        updatedAt: new Date(),
-      })
-      .where(eq(gatesTable.id, existingGate.id));
-  }
+    if (input.name || input.description !== undefined || input.config) {
+      await tx
+        .update(gatesTable)
+        .set({
+          ...(input.name ? { name: input.name } : {}),
+          ...(input.description !== undefined ? { description: input.description } : {}),
+          ...(input.config ? { config: input.config } : {}),
+          updatedAt: new Date(),
+        })
+        .where(eq(gatesTable.id, existingGate.id));
+    }
+  });
 
-  return getGateByName(apiKeyId, input.name ?? name);
+  return getGateByName(apiKeyId, newName);
 }
 
 export async function updateClass(
@@ -175,10 +173,7 @@ export async function updateClass(
   const [c] = await db
     .select()
     .from(classesTable)
-    .where(and(
-      eq(classesTable.gateId, gate.gate.id),
-      eq(classesTable.label, label),
-    ));
+    .where(and(eq(classesTable.gateId, gate.gate.id), eq(classesTable.label, label)));
   if (!c) return null;
 
   await db
@@ -199,38 +194,30 @@ export async function updateClass(
   }
 
   // Re-fetch updated row
-  const [updated] = await db
-    .select()
-    .from(classesTable)
-    .where(eq(classesTable.id, c.id));
+  const [updated] = await db.select().from(classesTable).where(eq(classesTable.id, c.id));
   return updated;
 }
 
-export async function addClass(
-  apiKeyId: number,
-  gateName: string,
-  input: AddClassInput,
-) {
+export async function addClass(apiKeyId: number, gateName: string, input: AddClassInput) {
   const db = getDb();
   const gate = await getGateByName(apiKeyId, gateName);
   if (!gate) return null;
 
-  const [inserted] = await db.insert(classesTable).values({
-    gateId: gate.gate.id,
-    gateName,
-    label: input.label,
-    utterances: input.utterances,
-    keywords: input.keywords ?? [],
-  }).returning();
+  const [inserted] = await db
+    .insert(classesTable)
+    .values({
+      gateId: gate.gate.id,
+      gateName,
+      label: input.label,
+      utterances: input.utterances,
+      keywords: input.keywords ?? [],
+    })
+    .returning();
 
   return inserted;
 }
 
-export async function deleteClass(
-  apiKeyId: number,
-  gateName: string,
-  label: string,
-) {
+export async function deleteClass(apiKeyId: number, gateName: string, label: string) {
   const db = getDb();
   const gate = await getGateByName(apiKeyId, gateName);
   if (!gate) return null;
@@ -238,10 +225,7 @@ export async function deleteClass(
   const [c] = await db
     .select({ id: classesTable.id })
     .from(classesTable)
-    .where(and(
-      eq(classesTable.gateId, gate.gate.id),
-      eq(classesTable.label, label),
-    ));
+    .where(and(eq(classesTable.gateId, gate.gate.id), eq(classesTable.label, label)));
   if (!c) return null;
 
   await db.delete(classesTable).where(eq(classesTable.id, c.id));
@@ -266,9 +250,5 @@ export async function disableGate(apiKeyId: number, name: string) {
 
 export async function transferGates(fromKeyId: number, toKeyId: number) {
   const db = getDb();
-  await db
-    .update(gatesTable)
-    .set({ apiKeyId: toKeyId })
-    .where(eq(gatesTable.apiKeyId, fromKeyId));
+  await db.update(gatesTable).set({ apiKeyId: toKeyId }).where(eq(gatesTable.apiKeyId, fromKeyId));
 }
-

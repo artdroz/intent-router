@@ -12,7 +12,9 @@ import { LlmClassifier } from "./classifiers/llm.js";
 import { CascadingRouter } from "./router/cascading.js";
 import type { RouteResult } from "./router/types.js";
 import type { RouteRequest, FeedbackInput } from "./schema.js";
+import type { RoutingEventRow } from "../store/schema.js";
 import { LRN_SCORE_THRESHOLD, LRN_MAX_PER_CLASS } from "./config.js";
+import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
 
 let _router: CascadingRouter | null = null;
 
@@ -60,9 +62,7 @@ export async function route(
   return { routeId, result };
 }
 
-export async function submitFeedback(
-  input: FeedbackInput,
-): Promise<void> {
+export async function submitFeedback(input: FeedbackInput): Promise<void> {
   const event = await routingStore.getRouteByRouteId(input.routeId);
   if (!event) throw new Error(`Route "${input.routeId}" not found`);
 
@@ -77,33 +77,36 @@ export async function submitFeedback(
     keywords.length > 0 ? keywords : undefined,
   );
 
-  // Embedding feedback: store positives, NN-delete on negatives
+  await applyEmbeddingFeedback(event, input);
+}
+
+async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInput): Promise<void> {
   try {
     const embedding = await getEmbedClient().embed(event.prompt);
     const predictedClass = await gateStore.getClassById(event.predictedClassId);
 
+    // Store positives
     if (input.positive) {
       if (predictedClass) {
-        await embeddingsStore.insertMany([{
-          classId: event.predictedClassId,
-          gateName: predictedClass.gateName,
-          label: predictedClass.label,
-          content: event.prompt,
-          source: "feedback",
-          embedding,
-        }]);
+        await embeddingsStore.insertMany([
+          {
+            classId: event.predictedClassId,
+            gateName: predictedClass.gateName,
+            label: predictedClass.label,
+            content: event.prompt,
+            source: "feedback",
+            embedding,
+          },
+        ]);
       }
-    } else {
-      // Delete nearest non-config embedding
-      const nearest = await embeddingsStore.searchByClassId(
-        event.predictedClassId,
-        embedding,
-        20,
-      );
-      const toDelete = nearest.find((r) => r.source !== "config");
-      if (toDelete) {
-        await embeddingsStore.deleteById(toDelete.id);
-      }
+      return;
+    }
+
+    // NN-delete the nearest non-config embedding
+    const nearest = await embeddingsStore.searchByClassId(event.predictedClassId, embedding, 20);
+    const toDelete = nearest.find((r) => r.source !== "config");
+    if (toDelete) {
+      await embeddingsStore.deleteById(toDelete.id);
     }
   } catch (err) {
     // Feedback already persisted; embedding learning is best-effort
@@ -119,7 +122,7 @@ export async function submitFeedback(
  *   2. Compute TF-IDF per keyword per class
  *   3. Promote top-N keywords per class
  */
-export async function runKeywordLearning(
+export async function promoteKeyword(
   scoreThreshold: number = LRN_SCORE_THRESHOLD,
   maxPerClass: number = LRN_MAX_PER_CLASS,
 ): Promise<void> {
@@ -127,67 +130,21 @@ export async function runKeywordLearning(
 
   for (const gateId of gateIds) {
     const corpus = await routingStore.getFeedbackCorpusByGate(gateId);
-
-    // Index: classId → [{ keywords, positive }]
-    const byClass = new Map<number, { keywords: string[]; positive: number }[]>();
-    for (const row of corpus) {
-      const list = byClass.get(row.classId) ?? [];
-      list.push({ keywords: row.keywords ?? [], positive: row.positive });
-      byClass.set(row.classId, list);
-    }
-
+    const byClass = groupCorpusByClass(corpus);
     const classIds = [...byClass.keys()];
     if (classIds.length < 2) continue; // TF-IDF needs ≥2 classes
 
-    const numClasses = classIds.length;
+    const docFreq = computeDocFrequencies(byClass);
 
-    // TF(k, c) = docCount(k, c) / totalDocs(c)
-    // IDF(k)   = log(numClasses / classesWithKeyword(k))
-    // Score(k, c) = TF(k, c) * IDF(k) * avgSignal(k, c)
-
-    // Build DF(k): how many classes contain keyword k
-    const docFreq = new Map<string, number>();
-    for (const [, docs] of byClass) {
-      const seen = new Set<string>();
-      for (const doc of docs) {
-        for (const kw of doc.keywords) seen.add(kw);
-      }
-      for (const kw of seen) {
-        docFreq.set(kw, (docFreq.get(kw) ?? 0) + 1);
-      }
-    }
-
-    // Score each keyword per class
     for (const [classId, docs] of byClass) {
-      const totalDocs = docs.length;
-      if (totalDocs === 0) continue;
-
-      const tfIdf = new Map<string, number>();
-      const signalSum = new Map<string, number>();
-
-      for (const doc of docs) {
-        const signal = doc.positive === 1 ? 1 : -1;
-        for (const kw of doc.keywords) {
-          signalSum.set(kw, (signalSum.get(kw) ?? 0) + signal);
-        }
-      }
-
-      for (const [kw] of signalSum) {
-        const posCount = docs.filter((d) => d.keywords.includes(kw) && d.positive === 1).length;
-        const negCount = docs.filter((d) => d.keywords.includes(kw) && d.positive === 0).length;
-        const tf = docs.filter((d) => d.keywords.includes(kw)).length / totalDocs;
-        const idf = Math.log(numClasses / (docFreq.get(kw) ?? 1));
-        const signalRatio = (posCount + 1) / (posCount + negCount + 1); // Laplace-smoothed
-        tfIdf.set(kw, tf * idf * signalRatio);
-      }
-
-      const promoted = [...tfIdf.entries()]
-        .filter(([, score]) => score >= scoreThreshold)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, maxPerClass)
-        .map(([kw]) => kw);
-
-        await routingStore.replacePromotedKeywords(classId, promoted);
+      const promoted = scoreClassKeywords(
+        docs,
+        docFreq,
+        classIds.length,
+        scoreThreshold,
+        maxPerClass,
+      );
+      await routingStore.replacePromotedKeywords(classId, promoted);
     }
   }
 }
