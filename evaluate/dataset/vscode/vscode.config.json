@@ -1,0 +1,98 @@
+{
+  "gate": {
+    "name": "vscode",
+    "description": "Classify the type of task in a VS Code issue by its primary intent",
+    "classes": [
+      {
+        "label": "accessibility",
+        "description": "Screen reader compatibility, WCAG contrast violations, keyboard navigation, ARIA semantics, or assistive technology support in VS Code",
+        "utterances": [
+          "fix edit fields in the issue reporter missing accessible labels for NVDA screen reader",
+          "fix VoiceOver not announcing the Dictation Introduction dialog when it opens",
+          "fix Mermaid diagrams frequently violating WCAG colour contrast requirements",
+          "add screen reader announcement for next edit suggestions (NES) inline edits",
+          "fix Go to Line/Column dialog having no line number visible to NVDA in the edit box",
+          "fix NES gutter indicator being focusable but having no role, no accessible name, and no keyboard operation",
+          "use ARIA status instead of alert for terminal live updates to reduce screen reader noise",
+          "fix High Contrast theme selection indicator being nearly invisible in the IntelliSense pop-up"
+        ],
+        "keywords": ["screen reader", "nvda", "voiceover", "orca", "aria", "wcag", "contrast", "keyboard", "focus", "tab order", "accessible", "a11y", "label", "role", "announcement", "braille", "high contrast", "font size", "legibility", "color blind"]
+      },
+      {
+        "label": "agent-chat",
+        "description": "Copilot Chat agent mode behavior, tool definitions, model selection, context injection, search problems, OTel, or session management",
+        "utterances": [
+          "run_factory should not accept an unconstrained factory name causing serial retry failures",
+          "raise or make configurable the hard 200-result cap in Copilot grep_search",
+          "fix Copilot refusing to analyze attached text files claiming they are not in the workspace",
+          "fix Multi-Root Workspace glob and file search not working due to hardcoded ** prefix",
+          "fix Reload not maintaining the agent harness choice, always reverting to Local",
+          "fix Copilot silently corrupting long attached files by summarizing them without warning",
+          "fix active editor file silently injected as editorContext causing unintended cross-project context switches",
+          "add support in VS Code for Agent Client Protocol (ACP) for 3rd party agent CLI integration"
+        ],
+        "keywords": ["copilot", "agent", "chat", "model", "tool", "search", "context", "attachment", "session", "otel", "telemetry", "harness", "workspace", "glob", "grep", "prompt", "message", "inline", "completion", "nes", "edit", "acp"]
+      },
+      {
+        "label": "agent-sandbox",
+        "description": "Copilot agent sandbox feature: bubblewrap, network isolation, approval rules, filesystem permissions, or Docker/container access",
+        "utterances": [
+          "terminal sandbox bypasses approval rules making it impossible to enforce command restrictions",
+          "support enableWeakerNetworkIsolation in agent sandbox for macOS trustd certificate verification",
+          "fix sandboxed agent terminal commands failing in Linux devcontainers due to missing user namespaces",
+          "fix sandbox settings being written into a write-allowed location the agent can edit",
+          "the fetch_webpage tool becomes unusable when agent sandboxing is enabled due to network domain policy",
+          "fix CLI reporting broken pty.node when sandbox is enabled on Linux",
+          "add a clear UI affordance to manage sandbox mode and exit the sandbox",
+          "fix sandbox dependency installation failing on apt systems without updated package metadata"
+        ],
+        "keywords": ["sandbox", "bwrap", "bubblewrap", "namespace", "isolation", "network", "domain", "allowed", "denied", "approval", "permission", "filesystem", "write", "read", "docker", "container", "devcontainer", "apparmor", "socat", "dependency"]
+      },
+      {
+        "label": "ubb",
+        "description": "Usage-Based Billing: AI credit consumption, quota management, cost display, billing telemetry, model pricing, or plan upgrades in Copilot",
+        "utterances": [
+          "add per-session AI credit budget to prevent catastrophic cost explosions from runaway agents",
+          "fix session cost not accounting for subagent credit consumption in the cost indicator",
+          "nudge EDU/Student users to Copilot Pro instead of Pro+ when limits are reached",
+          "fix Copilot Chat auto-switching to 1M context after VS Code restart, ignoring selected model",
+          "add telemetry for consumption checkpoint banners to track user engagement",
+          "show AI credits used when no ULB is set for users in organizations without billing limits",
+          "provide session-level token usage data similar to Copilot CLI /usage command",
+          "add cache_write_price display in the Cost column of the Models management UI"
+        ],
+        "keywords": ["credit", "quota", "billing", "ubb", "usage", "cost", "price", "token", "budget", "limit", "plan", "pro", "upgrade", "entitlement", "consumption", "checkpoint", "banner", "monthly", "reset", "overage", "auto", "model picker"]
+      },
+      {
+        "label": "wsl",
+        "description": "Windows Subsystem for Linux integration: WSL path handling, terminal issues, remote connections, WSL-specific bugs or feature requests",
+        "utterances": [
+          "fix directory from last WSL install not being remembered correctly",
+          "fix Node v24 exec format error in WSL 1 due to unsupported binary architecture",
+          "fix VS Code trying to update WSL on launch for no reason when WSL is already installed",
+          "fix VS Code maximized window shifted right and bottom on WSL2 Linux",
+          "fix pipe to `code -` not working in WSL remote sessions",
+          "fix GitHub Copilot Agent being unable to execute commands in WSL/bash terminals, only PowerShell supported",
+          "fix terminal suggest showing absolute completions from local C: drive in remote WSL windows",
+          "fix VS Code extension server restarting frequently on WSL after recent updates"
+        ],
+        "keywords": ["wsl", "wsl2", "wsl1", "windows subsystem", "bash", "ubuntu", "remote", "linux", "path", "backslash", "forward slash", "pipe", "code -", "terminal", "mirrored", "networking", "dns", "proxy", "reconnect", "install"]
+      },
+      {
+        "label": "api",
+        "description": "VS Code Extension API surface: new API proposals, API bugs, extension points, TreeView, webview, language model, or terminal APIs",
+        "utterances": [
+          "add support for contributable chat context resources in the Chat API",
+          "provide an API to track a document position across edits for live location references",
+          "expose document tokenization with theme-resolved token colors for extension use",
+          "allow extensions to add coloured markers in the gutter similar to source control decorations",
+          "add support for webview.hide() and webview.collapse() in the Extension API",
+          "add model visibility hide/show APIs to vscode.lm namespace for BYOK providers",
+          "finalize the tooltip API for QuickPickItem to show additional information",
+          "allow extensions to create terminals adjacent to a parent terminal without splitting"
+        ],
+        "keywords": ["api", "extension", "vscode.lm", "vscode.window", "vscode.extensions", "treeview", "webview", "quickpick", "terminal", "diagnostic", "hover", "custom editor", "tab", "chat", "tool", "provider", "namespace", "contribute", "register", "expose"]
+      }
+    ]
+  }
+}
