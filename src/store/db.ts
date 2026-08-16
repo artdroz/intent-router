@@ -26,7 +26,7 @@ export async function closeDb() {
   }
 }
 
-export async function runMigrations() {
+export async function runMigrations(migrationsFolder: string) {
   const db = getDb();
-  await migrate(db, { migrationsFolder: "./drizzle" });
+  await migrate(db, { migrationsFolder });
 }

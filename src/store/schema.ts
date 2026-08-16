@@ -15,6 +15,17 @@ const vector = customType<{ data: number[]; driverData: string }>({
   dataType() {
     return "vector";
   },
+  // pgvector expects the literal `[a,b,c,...]` format, not a PG array `{...}`.
+  toDriver(value: number[]): string {
+    return `[${value.join(",")}]`;
+  },
+  fromDriver(value: string): number[] {
+    return value
+      .slice(1, -1)
+      .split(",")
+      .filter(Boolean)
+      .map(Number);
+  },
 });
 
 export const apiKeys = pgTable("api_keys", {

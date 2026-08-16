@@ -80,5 +80,14 @@ export function aggregateSemantic(
     evidence.set(row.label, list);
   }
 
+  // TODO: Rethink about how to handle empty distribution
+  // If nothing cleared the similarity threshold, fall back to the single
+  // nearest neighbor so the classifier never returns an empty distribution.
+  if (scores.size === 0 && rows.length > 0) {
+    const nearest = rows[0];
+    scores.set(nearest.label, 1 - nearest.distance);
+    evidence.set(nearest.label, [nearest.content]);
+  }
+
   return { classifier: "semantic", entries: buildResult(scores, evidence) };
 }

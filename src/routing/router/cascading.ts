@@ -41,6 +41,20 @@ export class CascadingRouter implements Router {
   }
 
   async route(prompt: string, gate: Gate): Promise<RouteResult> {
+    const { result: preCascadeResult, margin, entropy } = await this.runPrecascade(prompt, gate);
+
+    if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
+      return preCascadeResult;
+    }
+
+    // Low confidence — fall back to LLM
+    return this.runLlmFallback(prompt, gate, preCascadeResult);
+  }
+
+  async runPrecascade(
+    prompt: string,
+    gate: Gate,
+  ): Promise<{ result: RouteResult; margin: number; entropy: number }> {
     // 1. Run keyword + semantic in parallel
     const [kwResult, semResult] = await Promise.all([
       this.keyword.classify(prompt, gate),
@@ -53,19 +67,15 @@ export class CascadingRouter implements Router {
 
     const margin = computeMargin(sorted);
     const entropy = computeEntropy(aggregated);
-    const preCascadeResult: RouteResult = {
+
+    const result: RouteResult = {
       label: sorted[0][0],
       score: sorted[0][1].prob,
       stage: "pre-cascade",
       scores: entriesToScores(aggregated),
     };
 
-    if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
-      return preCascadeResult;
-    }
-
-    // 3. Low confidence — fall back to LLM
-    return this.runLlmFallback(prompt, gate, preCascadeResult);
+    return { result, margin, entropy };
   }
 
   private async runLlmFallback(

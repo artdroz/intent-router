@@ -14,7 +14,7 @@ const envSchema = {
   type: "object",
   required: ["DATABASE_URL", "EMBED_BASE_URL", "EMBED_MODEL", "LLM_BASE_URL", "LLM_MODEL"],
   properties: {
-    PORT: { type: "number", default: 3000 },
+    PORT: { type: "number", default: 3010 },
     DATABASE_URL: { type: "string" },
     EMBED_BASE_URL: { type: "string" },
     EMBED_MODEL: { type: "string" },

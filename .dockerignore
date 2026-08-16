@@ -1,0 +1,17 @@
+# Secrets or local artifacts
+node_modules
+dist
+.git
+.env
+*.log
+
+# Operator project list
+config/projects.yaml
+
+# Local data
+data
+*.db
+evaluate
+
+# OS noise
+.DS_Store
