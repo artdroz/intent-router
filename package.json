@@ -12,6 +12,7 @@
     "@fastify/env": "^7.0.0",
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.11.3",
+    "fastify-plugin": "^6.0.0",
     "pg": "^8.13.0",
     "pgvector": "^0.2.0",
     "zod": "^4.4.3"
@@ -39,7 +40,9 @@
     "format:fix": "prettier --write 'src/**/*.{ts,json}'",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:push": "drizzle-kit push" 
+    "db:migrate:prod": "tsx scripts/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "evaluate": "bash evaluate/evaluator/run-all.sh"
   },
   "allowScripts": {
     "esbuild@0.28.2": true,
