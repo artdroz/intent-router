@@ -1,0 +1,25 @@
+# One-shot migration Job. Run once per deploy, before the app rolls out:
+#
+#   kubectl apply -f k8s/job.migrate.yaml
+#   kubectl wait --for=condition=complete job/intent-router-migrate --timeout=120s
+#   kubectl apply -f k8s/deployment.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: intent-router-migrate
+spec:
+  backoffLimit: 3
+  ttlSecondsAfterFinished: 600  # auto-delete the finished Job after 10 minutes
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: intent-router:latest
+          command: ["npm", "run", "db:migrate:prod"]
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: migrate-db-secret
+                  key: DATABASE_URL
