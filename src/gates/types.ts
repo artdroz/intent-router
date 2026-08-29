@@ -3,15 +3,16 @@ export type GateConfig = {
 };
 
 export type GateClass = {
+  id: number;
   label: string;
   description?: string;
   utterances: string[];
   keywords: string[];
-  promotedKeywords: string[];
 };
 
 export type Gate = {
   id: number;
+  tenantId: string | null;
   name: string;
   description: string | null;
   config: GateConfig;

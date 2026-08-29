@@ -14,7 +14,7 @@ const gateNameExists = vi.mocked(store.gateNameExists);
 
 function existingWithClasses(count: number) {
   return {
-    gate: {} as GateRow,
+    gate: { tenantId: "tenant-1" } as GateRow,
     classes: Array.from({ length: count }, () => ({})) as ClassRow[],
   };
 }
@@ -89,7 +89,9 @@ describe("deleteClass", () => {
   it("rejects deletion when fewer than two classes", async () => {
     getGateByName.mockResolvedValue(existingWithClasses(2));
 
-    await expect(deleteClass(1, "ops", "c0")).rejects.toThrow(/must have at least 2 classes/);
+    await expect(deleteClass("tenant-1", "ops", "c0")).rejects.toThrow(
+      /must have at least 2 classes/,
+    );
     expect(storeDeleteClass).not.toHaveBeenCalled();
   });
 
@@ -97,8 +99,8 @@ describe("deleteClass", () => {
     getGateByName.mockResolvedValue(existingWithClasses(3));
     storeDeleteClass.mockResolvedValue(true);
 
-    await expect(deleteClass(1, "ops", "c0")).resolves.toBeUndefined();
-    expect(storeDeleteClass).toHaveBeenCalledWith(1, "ops", "c0");
+    await expect(deleteClass("tenant-1", "ops", "c0")).resolves.toBeUndefined();
+    expect(storeDeleteClass).toHaveBeenCalledWith("ops", "c0");
   });
 });
 
@@ -109,11 +111,11 @@ describe("updateClass", () => {
 
   it("rejects a label rename that collides with an existing class", async () => {
     getGateByName.mockResolvedValue({
-      gate: {} as GateRow,
+      gate: { tenantId: "tenant-1" } as GateRow,
       classes: [classRow("deploy", ["ship it"]), classRow("debug", ["fix it"])],
     });
 
-    await expect(updateClass(1, "ops", "deploy", { label: "debug" })).rejects.toThrow(
+    await expect(updateClass("tenant-1", "ops", "deploy", { label: "debug" })).rejects.toThrow(
       /Duplicate class label "debug"/,
     );
     expect(storeUpdateClass).not.toHaveBeenCalled();
@@ -121,11 +123,11 @@ describe("updateClass", () => {
 
   it("rejects wiping a class's utterances", async () => {
     getGateByName.mockResolvedValue({
-      gate: {} as GateRow,
+      gate: { tenantId: "tenant-1" } as GateRow,
       classes: [classRow("deploy", ["ship it"]), classRow("debug", ["fix it"])],
     });
 
-    await expect(updateClass(1, "ops", "deploy", { utterances: [] })).rejects.toThrow(
+    await expect(updateClass("tenant-1", "ops", "deploy", { utterances: [] })).rejects.toThrow(
       /must have at least one utterance/,
     );
     expect(storeUpdateClass).not.toHaveBeenCalled();
@@ -149,7 +151,7 @@ describe("createGate", () => {
       ],
     };
 
-    await expect(createGate(1, input)).rejects.toThrow(/already exists/);
+    await expect(createGate("tenant-1", input)).rejects.toThrow(/already exists/);
     expect(storeCreateGate).not.toHaveBeenCalled();
   });
 });
