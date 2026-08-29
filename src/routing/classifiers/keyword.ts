@@ -2,6 +2,7 @@ import type { Classifier, ClassificationResult } from "./types.js";
 import type { Gate } from "../../gates/types.js";
 import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT } from "../config.js";
 import { buildResult } from "../utils.js";
+import { getPromotedKeywords } from "../../store/routing.js";
 
 export type KeywordOptions = {
   configWeight?: number;
@@ -19,16 +20,21 @@ export class KeywordClassifier implements Classifier {
     this.feedbackWeight = opts?.feedbackWeight ?? KW_FEEDBACK_WEIGHT;
   }
 
-  async classify(prompt: string, gate: Gate): Promise<ClassificationResult> {
+  async classify(
+    prompt: string,
+    gate: Gate,
+    tenantId: string,
+  ): Promise<ClassificationResult> {
     const tokens = tokenize(prompt);
     const scores = new Map<string, number>();
     const evidence = new Map<string, string[]>();
 
     for (const c of gate.classes) {
       const configMatched = matchedKeywords(tokens, c.keywords);
-      const promotedMatched = matchedKeywords(tokens, c.promotedKeywords);
+      const promotedKeywords = await getPromotedKeywords(c.id, tenantId);
+      const promotedMatched = matchedKeywords(tokens, promotedKeywords);
       const configTotal = c.keywords.length;
-      const feedbackTotal = c.promotedKeywords.length;
+      const feedbackTotal = promotedKeywords.length;
 
       const weightedHits =
         configMatched.length * this.configWeight + promotedMatched.length * this.feedbackWeight;

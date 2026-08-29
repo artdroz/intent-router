@@ -1,12 +1,21 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { KeywordClassifier, tokenize } from "./keyword.js";
 import type { Gate, GateClass } from "../../gates/types.js";
+import { getPromotedKeywords } from "../../store/routing.js";
+
+vi.mock("../../store/routing.js", () => ({
+  getPromotedKeywords: vi.fn(),
+}));
+
+const getPromotedKeywordsMock = vi.mocked(getPromotedKeywords);
+
+let nextId = 1;
 
 function makeClass(partial: Partial<GateClass> & { label: string }): GateClass {
   return {
+    id: nextId++,
     utterances: ["placeholder"],
     keywords: [],
-    promotedKeywords: [],
     ...partial,
   };
 }
@@ -14,6 +23,7 @@ function makeClass(partial: Partial<GateClass> & { label: string }): GateClass {
 function makeGate(classes: GateClass[]): Gate {
   return {
     id: 1,
+    tenantId: "tenant-1",
     name: "test",
     description: null,
     config: { learningEnabled: true },
@@ -22,6 +32,12 @@ function makeGate(classes: GateClass[]): Gate {
     updatedAt: new Date(),
   };
 }
+
+beforeEach(() => {
+  nextId = 1;
+  getPromotedKeywordsMock.mockReset();
+  getPromotedKeywordsMock.mockResolvedValue([]);
+});
 
 describe("tokenize", () => {
   it("lowercases and splits on whitespace", () => {
@@ -49,7 +65,7 @@ describe("KeywordClassifier", () => {
       makeClass({ label: "debug", keywords: ["debug", "fix"] }),
     ]);
 
-    const result = await new KeywordClassifier().classify("deploy now", gate);
+    const result = await new KeywordClassifier().classify("deploy now", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.prob).toBe(1);
     expect(result.entries.get("debug")!.prob).toBe(0);
@@ -61,7 +77,7 @@ describe("KeywordClassifier", () => {
       makeClass({ label: "debug", keywords: ["debug"] }),
     ]);
 
-    const result = await new KeywordClassifier().classify("deploy", gate);
+    const result = await new KeywordClassifier().classify("deploy", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.evidence).toEqual(["deploy"]);
     expect(result.entries.get("debug")!.evidence).toEqual([]);
@@ -73,7 +89,11 @@ describe("KeywordClassifier", () => {
       makeClass({ label: "debug", keywords: ["debug"] }),
     ]);
 
-    const result = await new KeywordClassifier().classify("completely unrelated", gate);
+    const result = await new KeywordClassifier().classify(
+      "completely unrelated",
+      gate,
+      "tenant-1",
+    );
 
     expect(result.entries.get("deploy")!.prob).toBe(0);
     expect(result.entries.get("debug")!.prob).toBe(0);
@@ -81,23 +101,29 @@ describe("KeywordClassifier", () => {
 
   it("does not crash on a class with zero keywords", async () => {
     const gate = makeGate([
-      makeClass({ label: "empty", keywords: [], promotedKeywords: [] }),
+      makeClass({ label: "empty", keywords: [] }),
       makeClass({ label: "debug", keywords: ["debug"] }),
     ]);
 
-    const result = await new KeywordClassifier().classify("debug", gate);
+    const result = await new KeywordClassifier().classify("debug", gate, "tenant-1");
 
     expect(result.entries.get("empty")!.prob).toBe(0);
     expect(result.entries.get("debug")!.prob).toBe(1);
   });
 
   it("weighs promoted keywords independently of config keywords", async () => {
-    const gate = makeGate([
-      makeClass({ label: "deploy", keywords: [], promotedKeywords: ["ship"] }),
-      makeClass({ label: "debug", keywords: [], promotedKeywords: ["fix"] }),
-    ]);
+    const deploy = makeClass({ label: "deploy", keywords: [] });
+    const debug = makeClass({ label: "debug", keywords: [] });
 
-    const result = await new KeywordClassifier().classify("ship it", gate);
+    getPromotedKeywordsMock.mockImplementation(async (classId) => {
+      if (classId === deploy.id) return ["ship"];
+      if (classId === debug.id) return ["fix"];
+      return [];
+    });
+
+    const gate = makeGate([deploy, debug]);
+
+    const result = await new KeywordClassifier().classify("ship it", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.prob).toBe(1);
   });

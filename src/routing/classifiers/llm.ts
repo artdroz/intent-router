@@ -8,7 +8,7 @@ export class LlmClassifier implements Classifier {
 
   constructor(private llmClient: LlmClient) {}
 
-  async classify(prompt: string, gate: Gate): Promise<ClassificationResult> {
+  async classify(prompt: string, gate: Gate, _tenantId: string): Promise<ClassificationResult> {
     const labels = gate.classes.map((c) => c.label);
 
     const answer = await this.llmClient.complete(

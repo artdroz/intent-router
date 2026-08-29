@@ -4,7 +4,7 @@ export type ClassifierMode = "semantic" | "llm" | "keyword";
 
 export interface Classifier {
   readonly name: ClassifierMode;
-  classify(prompt: string, gate: Gate): Promise<ClassificationResult>;
+  classify(prompt: string, gate: Gate, tenantId: string): Promise<ClassificationResult>;
 }
 
 export type ClassificationResult = {

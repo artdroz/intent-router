@@ -5,17 +5,18 @@ import type { Gate, GateClass } from "../../gates/types.js";
 
 function makeClass(label: string, description?: string): GateClass {
   return {
+    id: 0,
     label,
     description,
     utterances: ["placeholder"],
     keywords: [],
-    promotedKeywords: [],
   };
 }
 
 function makeGate(classes: GateClass[]): Gate {
   return {
     id: 1,
+    tenantId: "tenant-1",
     name: "test",
     description: "A test gate",
     config: { learningEnabled: true },
@@ -140,7 +141,7 @@ describe("LlmClassifier.classify", () => {
     };
 
     const gate = makeGate([makeClass("deploy", "Ship"), makeClass("debug", "Fix")]);
-    await new LlmClassifier(client).classify("deploy", gate);
+    await new LlmClassifier(client).classify("deploy", gate, "tenant-1");
 
     expect(captured![0].role).toBe("system");
     expect(captured![0].content).toContain("deploy");
@@ -153,7 +154,7 @@ describe("LlmClassifier.classify", () => {
     };
 
     const gate = makeGate([makeClass("deploy"), makeClass("debug")]);
-    const result = await new LlmClassifier(client).classify("deploy", gate);
+    const result = await new LlmClassifier(client).classify("deploy", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.prob).toBeCloseTo(0.5);
     expect(result.entries.get("debug")!.prob).toBeCloseTo(0.5);

@@ -36,9 +36,13 @@ export class SemanticClassifier implements Classifier {
     this.feedbackWeight = opts?.feedbackWeight ?? SEM_FEEDBACK_WEIGHT;
   }
 
-  async classify(prompt: string, gate: Gate): Promise<ClassificationResult> {
+  async classify(
+    prompt: string,
+    gate: Gate,
+    tenantId: string,
+  ): Promise<ClassificationResult> {
     const embedding = await this.embedClient.embed(prompt);
-    const rows = await searchByGate(gate.name, embedding, this.topK);
+    const rows = await searchByGate(gate.name, tenantId, embedding, this.topK);
     return aggregateSemantic(
       rows,
       this.similarityThreshold,
