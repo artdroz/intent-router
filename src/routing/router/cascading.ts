@@ -1,4 +1,4 @@
-import type { Router, RouteResult } from "./types.js";
+import type { Router, RouteResult, HistoricalFallback, CascadeOptions } from "./types.js";
 import type { Gate } from "../../gates/types.js";
 import type { ClassificationResult, ClassificationEntry } from "../classifiers/types.js";
 import { KeywordClassifier } from "../classifiers/keyword.js";
@@ -11,14 +11,8 @@ import {
   CAS_KW_WEIGHT,
   CAS_MARGIN_THRESHOLD,
   CAS_SEM_WEIGHT,
+  LLM_MAX_ATTEMPTS,
 } from "../config.js";
-
-export type CascadeOptions = {
-  kwWeight?: number;
-  semWeight?: number;
-  marginThreshold?: number;
-  entropyThreshold?: number;
-};
 
 export class CascadingRouter implements Router {
   readonly name = "cascade";
@@ -33,6 +27,8 @@ export class CascadingRouter implements Router {
     private semantic: SemanticClassifier,
     private llm: LlmClassifier,
     private options: CascadeOptions = {},
+    // historicalFallback is passed in as a function for testability
+    private historicalFallback?: HistoricalFallback,
   ) {
     this.kwWeight = this.options.kwWeight ?? CAS_KW_WEIGHT;
     this.semWeight = this.options.semWeight ?? CAS_SEM_WEIGHT;
@@ -40,29 +36,52 @@ export class CascadingRouter implements Router {
     this.entropyThreshold = this.options.entropyThreshold ?? CAS_ENTROPY_THRESHOLD;
   }
 
-  async route(prompt: string, gate: Gate): Promise<RouteResult> {
-    const { result: preCascadeResult, margin, entropy } = await this.runPrecascade(prompt, gate);
+  async route(prompt: string, gate: Gate, tenantId: string): Promise<RouteResult> {
+    // Safety net: with no keyword or utterance signal configured, the
+    // pre-cascade has nothing to work with — go straight to the LLM.
+    if (!hasConfiguredKeywords(gate) && !hasConfiguredUtterances(gate)) {
+      return this.runLlmFallback(prompt, gate, null, tenantId);
+    }
+
+    const { result: preCascadeResult, margin, entropy } = await this.runPrecascade(
+      prompt,
+      gate,
+      tenantId,
+    );
 
     if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
       return preCascadeResult;
     }
 
     // Low confidence — fall back to LLM
-    return this.runLlmFallback(prompt, gate, preCascadeResult);
+    return this.runLlmFallback(prompt, gate, preCascadeResult, tenantId);
   }
 
   async runPrecascade(
     prompt: string,
     gate: Gate,
+    tenantId: string,
   ): Promise<{ result: RouteResult; margin: number; entropy: number }> {
-    // 1. Run keyword + semantic in parallel
-    const [kwResult, semResult] = await Promise.all([
-      this.keyword.classify(prompt, gate),
-      this.semantic.classify(prompt, gate),
-    ]);
+    const useKeyword = hasConfiguredKeywords(gate);
+    const useSemantic = hasConfiguredUtterances(gate);
+    let aggregated: Map<string, ClassificationEntry>;
 
-    // 2. Aggregate weighted scores
-    const aggregated = aggregatePrecascade(kwResult, semResult, gate, this.kwWeight, this.semWeight);
+    // Run only the classifiers that have configured signal, so a missing
+    // keyword/utterance config can never produce a bogus all-zero distribution.
+    if (useKeyword && useSemantic) {
+      const [kwResult, semResult] = await Promise.all([
+        this.keyword.classify(prompt, gate, tenantId),
+        this.semantic.classify(prompt, gate, tenantId),
+      ]);
+      aggregated = aggregatePrecascade(kwResult, semResult, gate, this.kwWeight, this.semWeight);
+    } else if (useKeyword) {
+      const kwResult = await this.keyword.classify(prompt, gate, tenantId);
+      aggregated = ensureAllClasses(kwResult.entries, gate);
+    } else {
+      const semResult = await this.semantic.classify(prompt, gate, tenantId);
+      aggregated = ensureAllClasses(semResult.entries, gate);
+    }
+
     const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
 
     const margin = computeMargin(sorted);
@@ -81,15 +100,49 @@ export class CascadingRouter implements Router {
   private async runLlmFallback(
     prompt: string,
     gate: Gate,
-    preCascade: RouteResult,
+    preCascade: RouteResult | null,
+    tenantId: string,
   ): Promise<RouteResult> {
-    const llmResult = await this.llm.classify(prompt, gate);
+    const llmResult = await this.classifyLlmWithRetry(prompt, gate, tenantId);
     const { label, score } = pickBestLabel(llmResult.entries);
 
-    // LLM produced no usable answer — degrade gracefully to pre-cascade
-    if (label === null) return preCascade;
+    if (label !== null) {
+      return { label, score, stage: "llm", scores: entriesToScores(llmResult.entries) };
+    }
 
-    return { label, score, stage: "llm", scores: entriesToScores(llmResult.entries) };
+    // LLM produced no usable answer — degrade gracefully to pre-cascade.
+    if (preCascade) return preCascade;
+
+    // Last resort: the most-frequent historical class for this (gate, tenant).
+    const historical = await this.historicalFallback?.(gate, tenantId);
+    if (historical) {
+      const scores: Record<string, number> = {};
+      for (const c of gate.classes) scores[c.label] = c.label === historical ? 1 : 0;
+      return { label: historical, score: 0, stage: "historical", scores };
+    }
+
+    throw new Error(
+      `Gate "${gate.name}" could not be classified: LLM returned no usable answer and no fallback is available`,
+    );
+  }
+
+  /**
+   * Call the LLM up to {@link LLM_MAX_ATTEMPTS} times, retrying only when the
+   * previous attempt produced no usable label (empty or all-zero distribution).
+   */
+  private async classifyLlmWithRetry(
+    prompt: string,
+    gate: Gate,
+    tenantId: string,
+  ): Promise<ClassificationResult> {
+    let last: ClassificationResult | null = null;
+
+    for (let attempt = 1; attempt <= LLM_MAX_ATTEMPTS; attempt++) {
+      const result = await this.llm.classify(prompt, gate, tenantId);
+      last = result;
+      if (pickBestLabel(result.entries).label !== null) return result;
+    }
+    return last!;
   }
 }
 
@@ -101,6 +154,30 @@ export function shouldCascade(
   entropyThreshold: number,
 ): boolean {
   return margin < marginThreshold || entropy > entropyThreshold;
+}
+
+/** True when at least one class has config keywords for the keyword classifier. */
+export function hasConfiguredKeywords(gate: Gate): boolean {
+  return gate.classes.some((c) => c.keywords.length > 0);
+}
+
+/** True when at least one class has config utterances for the semantic classifier. */
+export function hasConfiguredUtterances(gate: Gate): boolean {
+  return gate.classes.some((c) => c.utterances.length > 0);
+}
+
+/** Fill in any gate classes missing from a single-classifier distribution with prob 0. */
+function ensureAllClasses(
+  entries: Map<string, ClassificationEntry>,
+  gate: Gate,
+): Map<string, ClassificationEntry> {
+  const complete = new Map(entries);
+  for (const c of gate.classes) {
+    if (!complete.has(c.label)) {
+      complete.set(c.label, { prob: 0, evidence: [] });
+    }
+  }
+  return complete;
 }
 
 /** Aggregate weighted sum of keyword + semantic probabilities across all gate classes. */
