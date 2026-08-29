@@ -6,12 +6,12 @@
  * are left untouched.
  *
  * Usage:
- *   npx tsx scripts/eval-cleanup.ts
+ *   npx tsx evaluate/evaluator/eval-cleanup.ts
  */
 
 import { eq } from "drizzle-orm";
-import { getDb, initDb } from "../src/store/db.js";
-import { apiKeys } from "../src/store/schema.js";
+import { getDb, initDb } from "../../src/store/db.js";
+import { apiKeys } from "../../src/store/schema.js";
 
 try {
   process.loadEnvFile?.();

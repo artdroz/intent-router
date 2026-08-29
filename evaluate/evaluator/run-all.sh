@@ -62,7 +62,7 @@ step() { echo; echo "==> $1"; }
 
 if [[ "$CLEAN" == "1" ]]; then
   step "0/5 — clean eval data from DB"
-  npx tsx scripts/eval-cleanup.ts
+  npx tsx evaluate/evaluator/eval-cleanup.ts
 fi
 
 step "1/5 — classifiers (keyword, semantic, llm)"
@@ -94,7 +94,7 @@ npx tsx evaluate/evaluator/combine-metrics.ts --stage all --dataset "$DATASETS" 
 
 if [[ "$CLEAN" == "1" ]]; then
   step "cleanup — remove eval data from DB"
-  npx tsx scripts/eval-cleanup.ts
+  npx tsx evaluate/evaluator/eval-cleanup.ts
 fi
 
 echo

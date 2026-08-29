@@ -32,7 +32,7 @@ import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { LlmClassifier } from "../../../src/routing/classifiers/llm.js";
 import { createEmbedClient } from "../../../src/lib/embed-client.js";
-import { createLlmClient } from "../../../src/lib/llm-client.js";
+import { initLlmClient } from "../../../src/lib/llm-client.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
 import {
   initDbAndSeed,
@@ -96,6 +96,7 @@ async function main() {
 
   // Seed all datasets (always index embeddings — needed by semantic)
   let embedFn: ((text: string) => Promise<number[]>) | undefined;
+  let tenantId = "";
   for (const ds of datasets) {
     const config = loadConfig(ds);
     const ctx = await initDbAndSeed(config, {
@@ -103,6 +104,7 @@ async function main() {
       embeddingUrl,
       embeddingModel,
     });
+    tenantId = ctx.tenantId;
     if (ctx.embed) embedFn = ctx.embed;
   }
 
@@ -134,7 +136,7 @@ async function main() {
         if (limit && comboResults.length >= limit) break;
 
         const t0 = performance.now();
-        const cr = await classifier.classify(row.prompt, gate);
+        const cr = await classifier.classify(row.prompt, gate, tenantId);
         const durationMs = Math.round(performance.now() - t0);
         const predicted = topLabel(cr);
         const correct = predicted === row.label;
@@ -203,7 +205,7 @@ function buildClassifier(
   if (mode === "llm") {
     // createLlmClient appends "/v1/chat/completions", so strip any trailing "/v1".
     const baseUrl = args.llmUrl.replace(/\/v1\/?$/, "").replace(/\/$/, "");
-    const client = createLlmClient({ baseUrl, model: args.llmModel });
+    const client = initLlmClient({ baseUrl, model: args.llmModel });
     return new LlmClassifier(client);
   }
 

@@ -34,7 +34,7 @@ import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { LlmClassifier } from "../../../src/routing/classifiers/llm.js";
 import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
-import { createLlmClient } from "../../../src/lib/llm-client.js";
+import { initLlmClient } from "../../../src/lib/llm-client.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
 import { createEmbedClient } from "../../../src/lib/embed-client.js";
 import {
@@ -101,6 +101,7 @@ async function main() {
 
   // Seed all datasets
   const embedClient = createEmbedClient({ baseUrl: embeddingUrl, model: embeddingModel });
+  let tenantId = "";
   for (const ds of datasets) {
     const config = loadConfig(ds);
     const ctx = await initDbAndSeed(config, {
@@ -108,12 +109,13 @@ async function main() {
       embeddingUrl,
       embeddingModel,
     });
+    tenantId = ctx.tenantId;
   }
 
   // Build classifiers + cascade router (shared across datasets)
   const keyword = new KeywordClassifier();
   const semantic = new SemanticClassifier(embedClient);
-  const llmClient = createLlmClient({
+  const llmClient = initLlmClient({
     baseUrl: llmUrl.replace(/\/v1\/?$/, "").replace(/\/$/, ""),
     model: llmModel,
   });
@@ -154,7 +156,7 @@ async function main() {
 
         // Phase 1: pre-cascade (keyword + semantic)
         const t0 = performance.now();
-        const pre = await router.runPrecascade(row.prompt, gate);
+        const pre = await router.runPrecascade(row.prompt, gate, tenantId);
         const preLatencyMs = Math.round(performance.now() - t0);
 
         const wouldCascade = shouldCascade(pre.margin, pre.entropy, margin, entropy);
@@ -167,7 +169,7 @@ async function main() {
         } else {
           // Phase 2: LLM fallback
           const t1 = performance.now();
-          const llmResult = await llm.classify(row.prompt, gate);
+          const llmResult = await llm.classify(row.prompt, gate, tenantId);
           llmLatencyMs = Math.round(performance.now() - t1);
           predicted = pickTop(llmResult);
         }

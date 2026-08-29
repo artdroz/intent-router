@@ -14,7 +14,7 @@ import { getDb, initDb } from "../../../src/store/db.js";
 import { createGate } from "../../../src/store/gates.js";
 import { insertMany, type NewEmbeddingInput } from "../../../src/store/embeddings.js";
 import { findKeyByName, insertKey } from "../../../src/store/api-keys.js";
-import { gates as gatesTable, classes as classesTable } from "../../../src/store/schema.js";
+import { gates as gatesTable, classes as classesTable, tenants as tenantsTable } from "../../../src/store/schema.js";
 import { createEmbedClient } from "../../../src/lib/embed-client.js";
 import type { Gate } from "../../../src/gates/types.js";
 import { DEFAULT_EMBEDDING_URL, DEFAULT_EMBEDDING_MODEL } from "../config.js";
@@ -125,7 +125,7 @@ export async function initDbAndSeed(
 
   // Seed labels: create (or reuse) the gate with its classes.
   const apiKey = await ensureEvalApiKey();
-  const gate = await getOrCreateGate(apiKey.id, config);
+  const gate = await getOrCreateGate(apiKey.tenantId, config);
   if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
 
   // Index embeddings
@@ -158,12 +158,30 @@ export async function initDbAndSeed(
 }
 
 const EVAL_API_KEY_NAME = "eval";
+const EVAL_TENANT_NAME = "eval";
+
+/** Ensure the eval tenant exists (created lazily on first run). */
+async function ensureEvalTenant() {
+  const db = getDb();
+  const [existing] = await db
+    .select()
+    .from(tenantsTable)
+    .where(eq(tenantsTable.name, EVAL_TENANT_NAME));
+  if (existing) return existing;
+  const [created] = await db
+    .insert(tenantsTable)
+    .values({ name: EVAL_TENANT_NAME })
+    .returning();
+  return created;
+}
 
 /** Ensure a dedicated API key exists so gates can be created for evaluation. */
 async function ensureEvalApiKey() {
-  const existing = await findKeyByName(EVAL_API_KEY_NAME);
+  const tenant = await ensureEvalTenant();
+  const existing = await findKeyByName(tenant.id, EVAL_API_KEY_NAME);
   if (existing) return existing;
   return insertKey({
+    tenantId: tenant.id,
     keyHash: `eval-${Date.now()}`,
     prefix: "eval",
     name: EVAL_API_KEY_NAME,
@@ -172,11 +190,11 @@ async function ensureEvalApiKey() {
 }
 
 /** Create the gate if it doesn't exist; otherwise reuse the existing rows. */
-async function getOrCreateGate(apiKeyId: number, config: DatasetConfig) {
+async function getOrCreateGate(tenantId: string, config: DatasetConfig) {
   const existing = await getGateByNameGlobal(config.gate.name);
   if (existing) return existing;
 
-  return createGate(apiKeyId, {
+  return createGate(tenantId, {
     name: config.gate.name,
     description: config.gate.description,
     config: { learningEnabled: true },

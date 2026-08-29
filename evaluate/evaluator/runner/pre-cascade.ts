@@ -94,6 +94,7 @@ async function main() {
 
   // Seed all datasets
   const embedClient = createEmbedClient({ baseUrl: embeddingUrl, model: embeddingModel });
+  let tenantId = "";
   for (const ds of datasets) {
     const config = loadConfig(ds);
     const ctx = await initDbAndSeed(config, {
@@ -101,6 +102,7 @@ async function main() {
       embeddingUrl,
       embeddingModel,
     });
+    tenantId = ctx.tenantId;
   }
 
   // Build classifiers + router (LLM classifier not needed for pre-classify)
@@ -147,7 +149,7 @@ async function main() {
         if (limit && comboResults.length >= limit) break;
 
         const t0 = performance.now();
-        const pre = await router.runPrecascade(row.prompt, gate);
+        const pre = await router.runPrecascade(row.prompt, gate, tenantId);
         const durationMs = Math.round(performance.now() - t0);
         const wouldCascade = shouldCascade(pre.margin, pre.entropy, margin, entropyThreshold);
         const correct = pre.result.label === row.label;
