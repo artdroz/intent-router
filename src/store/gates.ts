@@ -1,4 +1,4 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, or, isNull } from "drizzle-orm";
 import { getDb } from "./db.js";
 import {
   gates as gatesTable,
@@ -12,14 +12,14 @@ import type {
   AddClassInput,
 } from "../gates/schema.js";
 
-export async function createGate(apiKeyId: number, input: CreateGateInput) {
+export async function createGate(tenantId: string | null, input: CreateGateInput) {
   const db = getDb();
 
   const gateId = await db.transaction(async (tx) => {
     const [gate] = await tx
       .insert(gatesTable)
       .values({
-        apiKeyId,
+        tenantId: tenantId,
         name: input.name,
         description: input.description ?? null,
         config: input.config,
@@ -44,13 +44,13 @@ export async function createGate(apiKeyId: number, input: CreateGateInput) {
   return getGateById(gateId);
 }
 
-export async function getGateByName(apiKeyId: number, name: string) {
+export async function getGateByName(name: string) {
   const db = getDb();
   const [gate] = await db
     .select()
     .from(gatesTable)
     .where(
-      and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.name, name), eq(gatesTable.enabled, 1)),
+      and(eq(gatesTable.name, name), eq(gatesTable.enabled, 1)),
     );
 
   if (!gate) return null;
@@ -70,28 +70,18 @@ export async function getGateById(id: number) {
   return { gate, classes: gateClasses };
 }
 
-export async function getClassById(id: number) {
-  const db = getDb();
-  const [row] = await db.select().from(classesTable).where(eq(classesTable.id, id));
-  return row ?? null;
-}
-
-/** Check if a gate name is taken (both enabled or disabled). */
-export async function gateNameExists(apiKeyId: number, name: string) {
-  const db = getDb();
-  const [row] = await db
-    .select({ id: gatesTable.id })
-    .from(gatesTable)
-    .where(and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.name, name)));
-  return !!row;
-}
-
-export async function listGates(apiKeyId: number) {
+/** Return tenant's own gates plus the system gates (tenant_id IS NULL). */
+export async function getGatesByTenant(tenantId: string) {
   const db = getDb();
   const gateRows = await db
     .select()
     .from(gatesTable)
-    .where(and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.enabled, 1)))
+    .where(
+      and(
+        eq(gatesTable.enabled, 1),
+        or(eq(gatesTable.tenantId, tenantId), isNull(gatesTable.tenantId)),
+      ),
+    )
     .orderBy(gatesTable.createdAt);
 
   if (gateRows.length === 0) return [];
@@ -115,9 +105,25 @@ export async function listGates(apiKeyId: number) {
   }));
 }
 
-export async function updateGate(apiKeyId: number, name: string, input: UpdateGateInput) {
+export async function getClassById(id: number) {
   const db = getDb();
-  const existing = await getGateByName(apiKeyId, name);
+  const [row] = await db.select().from(classesTable).where(eq(classesTable.id, id));
+  return row ?? null;
+}
+
+/** Check if a gate name is taken (both enabled or disabled). */
+export async function gateNameExists(name: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({ id: gatesTable.id })
+    .from(gatesTable)
+    .where(eq(gatesTable.name, name));
+  return !!row;
+}
+
+export async function updateGate(name: string, input: UpdateGateInput) {
+  const db = getDb();
+  const existing = await getGateByName(name);
   if (!existing) return null;
   const existingGate = existing.gate;
   const newName = input.name ?? name;
@@ -157,17 +163,16 @@ export async function updateGate(apiKeyId: number, name: string, input: UpdateGa
     }
   });
 
-  return getGateByName(apiKeyId, newName);
+  return getGateByName(newName);
 }
 
 export async function updateClass(
-  apiKeyId: number,
   gateName: string,
   label: string,
   input: UpdateClassInput,
 ) {
   const db = getDb();
-  const gate = await getGateByName(apiKeyId, gateName);
+  const gate = await getGateByName(gateName);
   if (!gate) return null;
 
   const [c] = await db
@@ -198,9 +203,9 @@ export async function updateClass(
   return updated;
 }
 
-export async function addClass(apiKeyId: number, gateName: string, input: AddClassInput) {
+export async function addClass(gateName: string, input: AddClassInput) {
   const db = getDb();
-  const gate = await getGateByName(apiKeyId, gateName);
+  const gate = await getGateByName(gateName);
   if (!gate) return null;
 
   const [inserted] = await db
@@ -217,9 +222,9 @@ export async function addClass(apiKeyId: number, gateName: string, input: AddCla
   return inserted;
 }
 
-export async function deleteClass(apiKeyId: number, gateName: string, label: string) {
+export async function deleteClass(gateName: string, label: string) {
   const db = getDb();
-  const gate = await getGateByName(apiKeyId, gateName);
+  const gate = await getGateByName(gateName);
   if (!gate) return null;
 
   const [c] = await db
@@ -232,12 +237,12 @@ export async function deleteClass(apiKeyId: number, gateName: string, label: str
   return true;
 }
 
-export async function disableGate(apiKeyId: number, name: string) {
+export async function disableGate(name: string) {
   const db = getDb();
   const [gate] = await db
     .select({ id: gatesTable.id })
     .from(gatesTable)
-    .where(and(eq(gatesTable.apiKeyId, apiKeyId), eq(gatesTable.name, name)));
+    .where(and(eq(gatesTable.name, name)));
 
   if (!gate) return false;
 
@@ -248,7 +253,7 @@ export async function disableGate(apiKeyId: number, name: string) {
   return true;
 }
 
-export async function transferGates(fromKeyId: number, toKeyId: number) {
+export async function transferGates(fromTenantId: string, toTenantId: string) {
   const db = getDb();
-  await db.update(gatesTable).set({ apiKeyId: toKeyId }).where(eq(gatesTable.apiKeyId, fromKeyId));
+  await db.update(gatesTable).set({ tenantId: toTenantId }).where(eq(gatesTable.tenantId, fromTenantId));
 }

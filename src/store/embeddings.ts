@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNull, isNotNull, or } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDb } from "./db.js";
 import { embeddings as embeddingsTable } from "./schema.js";
@@ -69,11 +69,12 @@ export async function replaceClassEmbeddings(
 }
 
 /**
- * ANN search: find top-K nearest embeddings within a gate.
+ * ANN search: find top-K nearest embeddings within a gate and tenant.
  * Uses pgvector cosine distance (`<=>`).
  */
 export async function searchByGate(
   gateName: string,
+  tenantId: string,
   embedding: number[],
   topK: number,
 ): Promise<SearchResult[]> {
@@ -86,7 +87,12 @@ export async function searchByGate(
       distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
     })
     .from(embeddingsTable)
-    .where(eq(embeddingsTable.gateName, gateName))
+    .where(
+      and(
+        eq(embeddingsTable.gateName, gateName),
+        or(eq(embeddingsTable.tenantId, tenantId), isNull(embeddingsTable.tenantId)),
+      ),
+    )
     .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
     .limit(topK);
 
@@ -98,6 +104,7 @@ export async function searchByGate(
  */
 export async function searchByClassId(
   classId: number,
+  tenantId: string,
   embedding: number[],
   topK: number,
 ): Promise<SearchResult[]> {
@@ -110,7 +117,7 @@ export async function searchByClassId(
       distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
     })
     .from(embeddingsTable)
-    .where(eq(embeddingsTable.classId, classId))
+    .where(and(eq(embeddingsTable.classId, classId), eq(embeddingsTable.tenantId, tenantId)))
     .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
     .limit(topK);
 }
@@ -118,4 +125,14 @@ export async function searchByClassId(
 export async function deleteById(id: number) {
   const db = getDb();
   await db.delete(embeddingsTable).where(eq(embeddingsTable.id, id));
+}
+
+/** Number of tenant-learned (feedback) embeddings for a class. */
+export async function countLearntEmbeddingsByClass(classId: number): Promise<number> {
+  const db = getDb();
+  const [row] = await db
+    .select({ n: sql<number>`count(*)::int` })
+    .from(embeddingsTable)
+    .where(and(eq(embeddingsTable.classId, classId), isNotNull(embeddingsTable.tenantId)));
+  return row?.n ?? 0;
 }
