@@ -1,7 +1,7 @@
 import { initDb, closeDb } from "../src/store/db.js";
 import {
   createApiKey, disableApiKey, enableApiKey, extendApiKey,
-  transferKey, renameApiKey, listKeys,
+  transferGates, renameApiKey, listKeys,
 } from "../src/auth/api-keys.js";
 
 const DATABASE_URL = process.env.DATABASE_URL!;
@@ -12,59 +12,68 @@ function flag(name: string): string | undefined {
   return idx >= 0 ? args[idx + 1] : undefined;
 }
 
+function requireFlag(name: string): string {
+  const value = flag(name);
+  if (!value) throw new Error(`--${name} is required`);
+  return value;
+}
+
 async function main() {
   initDb(DATABASE_URL);
   try {
     switch (command) {
     case "create": {
-      const name = flag("name");
+      const tenant = requireFlag("tenant");
+      const name = requireFlag("name");
       const days = flag("expires");
-      if (!name) throw new Error("--name is required");
-      const key = await createApiKey({ name, expiresInDays: days ? Number(days) : undefined });
+      const key = await createApiKey({
+        tenantId: tenant,
+        name,
+        expiresInDays: days ? Number(days) : undefined,
+      });
       console.log(key);
       break;
     }
     case "disable": {
-      const name = flag("name"); if (!name) throw new Error("--name is required");
-      await disableApiKey(name);
+      const tenant = requireFlag("tenant");
+      const name = requireFlag("name");
+      await disableApiKey(tenant, name);
       console.log(`Key "${name}" disabled.`);
       break;
     }
     case "enable": {
-      const name = flag("name"); if (!name) throw new Error("--name is required");
-      await enableApiKey(name);
+      const tenant = requireFlag("tenant");
+      const name = requireFlag("name");
+      await enableApiKey(tenant, name);
       console.log(`Key "${name}" enabled.`);
       break;
     }
     case "extend": {
-      const name = flag("name");
-      const days = flag("days");
-      if (!name) throw new Error("--name is required");
-      if (!days) throw new Error("--days is required");
-      await extendApiKey(name, Number(days));
+      const tenant = requireFlag("tenant");
+      const name = requireFlag("name");
+      const days = requireFlag("days");
+      await extendApiKey(tenant, name, Number(days));
       console.log(`Key "${name}" extended by ${days} days.`);
       break;
     }
     case "rename": {
-      const oldName = flag("old");
-      const newName = flag("new");
-      if (!oldName) throw new Error("--old is required");
-      if (!newName) throw new Error("--new is required");
-      await renameApiKey(oldName, newName);
+      const tenant = requireFlag("tenant");
+      const oldName = requireFlag("old");
+      const newName = requireFlag("new");
+      await renameApiKey(tenant, oldName, newName);
       console.log(`Key "${oldName}" renamed to "${newName}".`);
       break;
     }
     case "transfer": {
-      const from = flag("from");
-      const to = flag("to");
-      if (!from) throw new Error("--from is required");
-      if (!to) throw new Error("--to is required");
-      await transferKey(from, to);
-      console.log(`Resources transferred from "${from}" to "${to}". (Source disabled)`);
+      const from = requireFlag("from");
+      const to = requireFlag("to");
+      await transferGates(from, to);
+      console.log(`Resources transferred from "${from}" to "${to}".`);
       break;
     }
     case "list": {
-      const keys = await listKeys();
+      const tenant = requireFlag("tenant");
+      const keys = await listKeys(tenant);
       for (const k of keys) {
         console.log(`${k.prefix}…  ${k.name}  enabled=${k.enabled}  expires=${k.expiresAt ?? "never"}`);
       }
@@ -72,13 +81,13 @@ async function main() {
     }
     default:
       console.log("npx tsx scripts/manage-keys.ts <command> [flags]");
-      console.log("  create   --name <name> [--expires <days>]");
-      console.log("  disable  --name <name>");
-      console.log("  enable   --name <name>");
-      console.log("  extend   --name <name> --days <days>");
-      console.log("  rename   --old <name> --new <name>");
-      console.log("  transfer --from <name> --to <name>");
-      console.log("  list");
+      console.log("  create   --tenant <id> --name <name> [--expires <days>]");
+      console.log("  disable  --tenant <id> --name <name>");
+      console.log("  enable   --tenant <id> --name <name>");
+      console.log("  extend   --tenant <id> --name <name> --days <days>");
+      console.log("  rename   --tenant <id> --old <name> --new <name>");
+      console.log("  transfer --from <tenant-id> --to <tenant-id>");
+      console.log("  list     --tenant <id>");
   }
   } finally {
     await closeDb();
