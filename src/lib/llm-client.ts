@@ -16,7 +16,7 @@ export type LlmClient = {
   complete(messages: LlmMessage[], responseFormat?: LlmResponseFormat): Promise<string>;
 };
 
-export function createLlmClient(config: {
+export function initLlmClient(config: {
   baseUrl: string;
   model: string;
   apiKey?: string;

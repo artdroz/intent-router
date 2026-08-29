@@ -2,6 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import * as store from "../store/api-keys.js";
 import * as gateStore from "../store/gates.js";
 
+
+
+const MIN_NAME_LENGTH = 2;
+const MIN_EXPIRY_DAYS = 1;
+const MAX_EXPIRY_DAYS = 365;
 export type ApiKeyError = "missing" | "invalid" | "disabled" | "expired";
 
 export type ApiKeyResult = { ok: true; tenantId: string } | { ok: false; error: ApiKeyError };
@@ -27,10 +32,6 @@ export async function verifyApiKey(authorization: string | undefined): Promise<A
 
   return { ok: true, tenantId: row.tenantId };
 }
-
-const MIN_NAME_LENGTH = 2;
-const MIN_EXPIRY_DAYS = 1;
-const MAX_EXPIRY_DAYS = 365;
 
 export async function createApiKey(opts: {
   tenantId: string;

@@ -16,6 +16,7 @@ import type { RoutingEventRow } from "../store/schema.js";
 import { LRN_SCORE_THRESHOLD, LRN_MAX_PER_CLASS } from "./config.js";
 import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
 
+// TOD0: handle large prompts gracefuly when embedding
 let _router: CascadingRouter | null = null;
 let _maxPromptLength = 50000;
 
@@ -41,21 +42,13 @@ function getRouter(): CascadingRouter {
 
 export type RoutingChannel = "rest" | "litellm" | "mcp";
 
-/** Thrown when a prompt exceeds the configured max length. */
-export class PromptTooLongError extends Error {
-  constructor(readonly maxPromptLength: number) {
-    super(`Prompt exceeds max length of ${maxPromptLength}`);
-    this.name = "PromptTooLongError";
-  }
-}
-
 export async function route(
   tenantId: string,
   input: RouteRequest,
   channel: RoutingChannel = "litellm",
 ): Promise<{ routeId: string; result: RouteResult }> {
   if (input.prompt.length > _maxPromptLength) {
-    throw new PromptTooLongError(_maxPromptLength);
+    throw new Error(`Prompt exceeds max length of ${_maxPromptLength}`);
   }
 
   // Check if the tenant has access to the gate

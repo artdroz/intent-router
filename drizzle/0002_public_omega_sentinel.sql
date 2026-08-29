@@ -1,0 +1,1 @@
+ALTER TABLE "routing_events" ADD COLUMN "channel" text DEFAULT 'rest' NOT NULL;

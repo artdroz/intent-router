@@ -13,8 +13,10 @@
     "drizzle-orm": "^0.45.2",
     "fastify": "^5.11.3",
     "fastify-plugin": "^6.0.0",
+    "fastmcp": "^4.16.12",
     "pg": "^8.13.0",
     "pgvector": "^0.2.0",
+    "yaml": "^2.9.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -42,6 +44,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:prod": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
+    "create:tenant": "tsx scripts/create-tenant.ts",
     "evaluate": "bash evaluate/evaluator/run-all.sh"
   },
   "allowScripts": {

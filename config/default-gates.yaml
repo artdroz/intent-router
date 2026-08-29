@@ -1,0 +1,18 @@
+# Service-wide default config — the dev team's source of truth for system gates.
+#
+# models: model name -> gate name (LiteLLM request-time resolution; NOT seeded).
+# gates:  full gate definitions, seeded into the DB at startup via an idempotent
+#         reconcile (create/update/delete-unused).
+#
+# NOTE: a gate needs at least 2 classes (non-empty label, >=1 utterance each).
+# Fill in real classes before running the service.
+
+models:
+  complexity-tier: complexity-tier
+
+gates:
+  - name: complexity-tier
+    description: ""
+    config:
+      learningEnabled: true
+    classes: []
