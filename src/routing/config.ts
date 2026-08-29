@@ -18,3 +18,6 @@ export const CAS_KEYWORD_GATE_BOOST = 1.5;  // TODO: Need tuning
 // Keyword learning (TF-IDF)
 export const LRN_SCORE_THRESHOLD = 0.05;
 export const LRN_MAX_PER_CLASS = 30;
+
+/** Maximum LLM attempts before giving up on a usable answer. */
+export const LLM_MAX_ATTEMPTS = 3;
