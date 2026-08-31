@@ -1,9 +1,10 @@
 import type { Router, RouteResult, HistoricalFallback, CascadeOptions } from "./types.js";
 import type { Gate } from "../../gates/types.js";
-import type { ClassificationResult, ClassificationEntry } from "../classifiers/types.js";
-import { KeywordClassifier } from "../classifiers/keyword.js";
-import { SemanticClassifier } from "../classifiers/semantic.js";
-import { LlmClassifier } from "../classifiers/llm.js";
+import type {
+  Classifier,
+  ClassificationResult,
+  ClassificationEntry,
+} from "../classifiers/types.js";
 import { buildResult, computeMargin, computeEntropy, pickBestLabel } from "../utils.js";
 import {
   CAS_ENTROPY_THRESHOLD,
@@ -23,9 +24,9 @@ export class CascadingRouter implements Router {
   private readonly entropyThreshold: number;
 
   constructor(
-    private keyword: KeywordClassifier,
-    private semantic: SemanticClassifier,
-    private llm: LlmClassifier,
+    private keyword: Classifier,
+    private semantic: Classifier,
+    private llm: Classifier,
     private options: CascadeOptions = {},
     // historicalFallback is passed in as a function for testability
     private historicalFallback?: HistoricalFallback,
@@ -43,11 +44,11 @@ export class CascadingRouter implements Router {
       return this.runLlmFallback(prompt, gate, null, tenantId);
     }
 
-    const { result: preCascadeResult, margin, entropy } = await this.runPrecascade(
-      prompt,
-      gate,
-      tenantId,
-    );
+    const {
+      result: preCascadeResult,
+      margin,
+      entropy,
+    } = await this.runPrecascade(prompt, gate, tenantId);
 
     if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
       return preCascadeResult;

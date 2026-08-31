@@ -88,7 +88,7 @@ export function parseResponse(
 
   let parsed: { reasoning?: string; distribution?: Record<string, number> };
   try {
-    parsed = JSON.parse(cleaned);
+    parsed = JSON.parse(cleaned) as { reasoning?: string; distribution?: Record<string, number> };
   } catch {
     return { scores: new Map(), evidence: new Map() };
   }

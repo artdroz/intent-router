@@ -131,7 +131,7 @@ export function toGate(raw: { gate: GateRow; classes: ClassRow[] }): Gate {
     tenantId: raw.gate.tenantId,
     name: raw.gate.name,
     description: raw.gate.description,
-    config: raw.gate.config as unknown as Gate["config"],
+    config: raw.gate.config as Gate["config"],
     classes: raw.classes.map(toGateClass),
     createdAt: raw.gate.createdAt,
     updatedAt: raw.gate.updatedAt,

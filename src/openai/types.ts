@@ -31,4 +31,3 @@ export type ListModelsResponse = {
   object: "list";
   data: Array<{ id: string; object: "model"; created: number; owned_by: string }>;
 };
-

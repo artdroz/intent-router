@@ -2,8 +2,6 @@ import { createHash, randomUUID } from "node:crypto";
 import * as store from "../store/api-keys.js";
 import * as gateStore from "../store/gates.js";
 
-
-
 const MIN_NAME_LENGTH = 2;
 const MIN_EXPIRY_DAYS = 1;
 const MAX_EXPIRY_DAYS = 365;

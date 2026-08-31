@@ -2,9 +2,9 @@ import { sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { getDb } from "../store/db.js";
 
-export async function healthRoutes(app: FastifyInstance) {
+export function healthRoutes(app: FastifyInstance) {
   // Liveness — the process is up and serving requests.
-  app.get("/health", async () => ({ status: "ok" }));
+  app.get("/health", () => ({ status: "ok" }));
 
   // Readiness — required dependencies (the database) are reachable.
   app.get("/ready", async (req, reply) => {

@@ -20,11 +20,7 @@ export class KeywordClassifier implements Classifier {
     this.feedbackWeight = opts?.feedbackWeight ?? KW_FEEDBACK_WEIGHT;
   }
 
-  async classify(
-    prompt: string,
-    gate: Gate,
-    tenantId: string,
-  ): Promise<ClassificationResult> {
+  async classify(prompt: string, gate: Gate, tenantId: string): Promise<ClassificationResult> {
     const tokens = tokenize(prompt);
     const scores = new Map<string, number>();
     const evidence = new Map<string, string[]>();

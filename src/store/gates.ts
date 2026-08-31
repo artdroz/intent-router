@@ -49,9 +49,7 @@ export async function getGateByName(name: string) {
   const [gate] = await db
     .select()
     .from(gatesTable)
-    .where(
-      and(eq(gatesTable.name, name), eq(gatesTable.enabled, 1)),
-    );
+    .where(and(eq(gatesTable.name, name), eq(gatesTable.enabled, 1)));
 
   if (!gate) return null;
 
@@ -166,11 +164,7 @@ export async function updateGate(name: string, input: UpdateGateInput) {
   return getGateByName(newName);
 }
 
-export async function updateClass(
-  gateName: string,
-  label: string,
-  input: UpdateClassInput,
-) {
+export async function updateClass(gateName: string, label: string, input: UpdateClassInput) {
   const db = getDb();
   const gate = await getGateByName(gateName);
   if (!gate) return null;
@@ -255,5 +249,8 @@ export async function disableGate(name: string) {
 
 export async function transferGates(fromTenantId: string, toTenantId: string) {
   const db = getDb();
-  await db.update(gatesTable).set({ tenantId: toTenantId }).where(eq(gatesTable.tenantId, fromTenantId));
+  await db
+    .update(gatesTable)
+    .set({ tenantId: toTenantId })
+    .where(eq(gatesTable.tenantId, fromTenantId));
 }

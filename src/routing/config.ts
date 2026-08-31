@@ -13,7 +13,7 @@ export const CAS_KW_WEIGHT = 0.3;
 export const CAS_SEM_WEIGHT = 0.7;
 export const CAS_MARGIN_THRESHOLD = 0.15;
 export const CAS_ENTROPY_THRESHOLD = 1.2;
-export const CAS_KEYWORD_GATE_BOOST = 1.5;  // TODO: Need tuning
+export const CAS_KEYWORD_GATE_BOOST = 1.5; // TODO: Need tuning
 
 // Keyword learning (TF-IDF)
 export const LRN_SCORE_THRESHOLD = 0.05;

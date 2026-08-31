@@ -36,11 +36,7 @@ export class SemanticClassifier implements Classifier {
     this.feedbackWeight = opts?.feedbackWeight ?? SEM_FEEDBACK_WEIGHT;
   }
 
-  async classify(
-    prompt: string,
-    gate: Gate,
-    tenantId: string,
-  ): Promise<ClassificationResult> {
+  async classify(prompt: string, gate: Gate, tenantId: string): Promise<ClassificationResult> {
     const embedding = await this.embedClient.embed(prompt);
     const rows = await searchByGate(gate.name, tenantId, embedding, this.topK);
     return aggregateSemantic(
@@ -53,13 +49,13 @@ export class SemanticClassifier implements Classifier {
 }
 
 /**
-   * Aggregate global ANN results into per-class normalized probabilities.
-   *
-   * 1. Convert distance → similarity (1 - distance)
-   * 2. Apply source multiplier: config utterances get 1.2× bonus
-   * 3. Sum weighted similarities per class
-   * 4. Normalize each sum by total → [0, 1]
-   */
+ * Aggregate global ANN results into per-class normalized probabilities.
+ *
+ * 1. Convert distance → similarity (1 - distance)
+ * 2. Apply source multiplier: config utterances get 1.2× bonus
+ * 3. Sum weighted similarities per class
+ * 4. Normalize each sum by total → [0, 1]
+ */
 export function aggregateSemantic(
   rows: SearchResult[],
   similarityThreshold: number,

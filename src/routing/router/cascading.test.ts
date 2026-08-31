@@ -224,13 +224,13 @@ describe("CascadingRouter safety nets", () => {
   };
 
   it("uses semantic only when no keywords are configured", async () => {
-    const keywordSpy = vi.fn(async () => kwResult);
-    const semanticSpy = vi.fn(async () => semResult);
+    const keywordSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(kwResult);
+    const semanticSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(semResult);
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: keywordSpy } as any,
-      { name: "semantic", classify: semanticSpy } as any,
-      { name: "llm", classify: async () => llmResult } as any,
+      { name: "keyword", classify: keywordSpy },
+      { name: "semantic", classify: semanticSpy },
+      { name: "llm", classify: () => Promise.resolve(llmResult) },
     );
 
     const result = await router.route(
@@ -249,13 +249,13 @@ describe("CascadingRouter safety nets", () => {
   });
 
   it("uses keyword only when no utterances are configured", async () => {
-    const keywordSpy = vi.fn(async () => kwResult);
-    const semanticSpy = vi.fn(async () => semResult);
+    const keywordSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(kwResult);
+    const semanticSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(semResult);
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: keywordSpy } as any,
-      { name: "semantic", classify: semanticSpy } as any,
-      { name: "llm", classify: async () => llmResult } as any,
+      { name: "keyword", classify: keywordSpy },
+      { name: "semantic", classify: semanticSpy },
+      { name: "llm", classify: () => Promise.resolve(llmResult) },
     );
 
     const result = await router.route(
@@ -274,14 +274,14 @@ describe("CascadingRouter safety nets", () => {
   });
 
   it("falls back to LLM when neither keywords nor utterances are configured", async () => {
-    const keywordSpy = vi.fn(async () => kwResult);
-    const semanticSpy = vi.fn(async () => semResult);
-    const llmSpy = vi.fn(async () => llmResult);
+    const keywordSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(kwResult);
+    const semanticSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(semResult);
+    const llmSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(llmResult);
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: keywordSpy } as any,
-      { name: "semantic", classify: semanticSpy } as any,
-      { name: "llm", classify: llmSpy } as any,
+      { name: "keyword", classify: keywordSpy },
+      { name: "semantic", classify: semanticSpy },
+      { name: "llm", classify: llmSpy },
     );
 
     const result = await router.route("hello", gate([{ label: "a" }, { label: "b" }]), "tenant-1");
@@ -294,18 +294,18 @@ describe("CascadingRouter safety nets", () => {
   });
 
   it("retries the LLM up to three times when it returns no usable label", async () => {
-    const keywordSpy = vi.fn(async () => kwResult);
-    const semanticSpy = vi.fn(async () => semResult);
+    const keywordSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(kwResult);
+    const semanticSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(semResult);
     const llmSpy = vi
-      .fn()
+      .fn<() => Promise<ClassificationResult>>()
       .mockResolvedValueOnce(nullLlmResult)
       .mockResolvedValueOnce(nullLlmResult)
       .mockResolvedValueOnce(llmOkResult);
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: keywordSpy } as any,
-      { name: "semantic", classify: semanticSpy } as any,
-      { name: "llm", classify: llmSpy } as any,
+      { name: "keyword", classify: keywordSpy },
+      { name: "semantic", classify: semanticSpy },
+      { name: "llm", classify: llmSpy },
     );
 
     const result = await router.route("hello", gate([{ label: "a" }, { label: "b" }]), "tenant-1");
@@ -318,13 +318,13 @@ describe("CascadingRouter safety nets", () => {
   });
 
   it("falls back to the most-frequent historical class when everything else fails", async () => {
-    const llmSpy = vi.fn(async () => nullLlmResult);
-    const historical = vi.fn(async () => "b");
+    const llmSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(nullLlmResult);
+    const historical = vi.fn<() => Promise<string | null>>().mockResolvedValue("b");
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: async () => kwResult } as any,
-      { name: "semantic", classify: async () => semResult } as any,
-      { name: "llm", classify: llmSpy } as any,
+      { name: "keyword", classify: () => Promise.resolve(kwResult) },
+      { name: "semantic", classify: () => Promise.resolve(semResult) },
+      { name: "llm", classify: llmSpy },
       {},
       historical,
     );
@@ -339,15 +339,17 @@ describe("CascadingRouter safety nets", () => {
   });
 
   it("degrades to pre-cascade without consulting history when the LLM fails", async () => {
-    const keywordSpy = vi.fn(async () => ambiguousKwResult);
-    const semanticSpy = vi.fn(async () => semResult);
-    const llmSpy = vi.fn(async () => nullLlmResult);
-    const historical = vi.fn(async () => "a");
+    const keywordSpy = vi
+      .fn<() => Promise<ClassificationResult>>()
+      .mockResolvedValue(ambiguousKwResult);
+    const semanticSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(semResult);
+    const llmSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(nullLlmResult);
+    const historical = vi.fn<() => Promise<string | null>>().mockResolvedValue("a");
 
     const router = new CascadingRouter(
-      { name: "keyword", classify: keywordSpy } as any,
-      { name: "semantic", classify: semanticSpy } as any,
-      { name: "llm", classify: llmSpy } as any,
+      { name: "keyword", classify: keywordSpy },
+      { name: "semantic", classify: semanticSpy },
+      { name: "llm", classify: llmSpy },
       {},
       historical,
     );

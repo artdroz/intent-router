@@ -134,9 +134,9 @@ describe("LlmClassifier.classify", () => {
   it("passes the system prompt and response format to the client", async () => {
     let captured: { role: string; content: string }[] | null = null;
     const client: LlmClient = {
-      complete: async (messages) => {
+      complete: (messages) => {
         captured = messages;
-        return '{"reasoning":"x","distribution":{"deploy":1,"debug":0}}';
+        return Promise.resolve('{"reasoning":"x","distribution":{"deploy":1,"debug":0}}');
       },
     };
 
@@ -150,7 +150,7 @@ describe("LlmClassifier.classify", () => {
 
   it("normalizes the parsed distribution", async () => {
     const client: LlmClient = {
-      complete: async () => '{"reasoning":"x","distribution":{"deploy":2,"debug":2}}',
+      complete: () => Promise.resolve('{"reasoning":"x","distribution":{"deploy":2,"debug":2}}'),
     };
 
     const gate = makeGate([makeClass("deploy"), makeClass("debug")]);

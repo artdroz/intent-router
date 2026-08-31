@@ -89,11 +89,7 @@ describe("KeywordClassifier", () => {
       makeClass({ label: "debug", keywords: ["debug"] }),
     ]);
 
-    const result = await new KeywordClassifier().classify(
-      "completely unrelated",
-      gate,
-      "tenant-1",
-    );
+    const result = await new KeywordClassifier().classify("completely unrelated", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.prob).toBe(0);
     expect(result.entries.get("debug")!.prob).toBe(0);
@@ -115,10 +111,10 @@ describe("KeywordClassifier", () => {
     const deploy = makeClass({ label: "deploy", keywords: [] });
     const debug = makeClass({ label: "debug", keywords: [] });
 
-    getPromotedKeywordsMock.mockImplementation(async (classId) => {
-      if (classId === deploy.id) return ["ship"];
-      if (classId === debug.id) return ["fix"];
-      return [];
+    getPromotedKeywordsMock.mockImplementation((classId) => {
+      if (classId === deploy.id) return Promise.resolve(["ship"]);
+      if (classId === debug.id) return Promise.resolve(["fix"]);
+      return Promise.resolve([]);
     });
 
     const gate = makeGate([deploy, debug]);

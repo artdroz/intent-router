@@ -41,10 +41,7 @@ describe("aggregateSemantic", () => {
   });
 
   it("sums similarities across multiple rows of the same class", () => {
-    const rows = [
-      row({ label: "a", distance: 0.1 }),
-      row({ label: "a", distance: 0.2 }),
-    ];
+    const rows = [row({ label: "a", distance: 0.1 }), row({ label: "a", distance: 0.2 })];
 
     const result = aggregateSemantic(rows, 0.7, 1.0, 1.0);
 

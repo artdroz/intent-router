@@ -40,9 +40,7 @@ describe("createGateSchema", () => {
 
 describe("addClassSchema", () => {
   it("accepts a class with utterances", () => {
-    expect(() =>
-      addClassSchema.parse({ label: "deploy", utterances: ["ship it"] }),
-    ).not.toThrow();
+    expect(() => addClassSchema.parse({ label: "deploy", utterances: ["ship it"] })).not.toThrow();
   });
 
   it("rejects a label over 50 chars", () => {
