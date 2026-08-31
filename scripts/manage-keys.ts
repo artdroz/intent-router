@@ -80,7 +80,7 @@ async function main() {
       break;
     }
     default:
-      console.log("npx tsx scripts/manage-keys.ts <command> [flags]");
+      console.log("node dist/scripts/manage-keys.js <command> [flags]");
       console.log("  create   --tenant <id> --name <name> [--expires <days>]");
       console.log("  disable  --tenant <id> --name <name>");
       console.log("  enable   --tenant <id> --name <name>");

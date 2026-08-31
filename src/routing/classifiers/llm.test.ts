@@ -26,107 +26,57 @@ function makeGate(classes: GateClass[]): Gate {
   };
 }
 
+describe("parseResponse", () => {
+  it("grabs the first label via regex from plain text", () => {
+    const { scores } = parseResponse("This needs a full debug pass", ["deploy", "debug"]);
+
+    expect(scores.get("debug")).toBe(1);
+    expect(scores.get("deploy")).toBe(0);
+  });
+
+  it("is case-insensitive", () => {
+    const { scores } = parseResponse("Tier: REASONING", [
+      "simple",
+      "medium",
+      "complex",
+      "reasoning",
+    ]);
+
+    expect(scores.get("reasoning")).toBe(1);
+    expect(scores.get("simple")).toBe(0);
+  });
+
+  it("matches a label inside JSON-like text without parsing it", () => {
+    const { scores } = parseResponse('{"label":"debug"}', ["deploy", "debug"]);
+
+    expect(scores.get("debug")).toBe(1);
+    expect(scores.get("deploy")).toBe(0);
+  });
+
+  it("returns all-zero scores when no label is found", () => {
+    const { scores } = parseResponse("unrelated gibberish", ["deploy", "debug"]);
+
+    expect(scores.get("deploy")).toBe(0);
+    expect(scores.get("debug")).toBe(0);
+  });
+});
+
 describe("buildSystemPrompt", () => {
-  it("lists every class label with a description", () => {
+  it("asks for a bare label and does not request JSON", () => {
     const gate = makeGate([makeClass("deploy", "Ship code"), makeClass("debug", "Fix bugs")]);
     const prompt = buildSystemPrompt(gate);
 
     expect(prompt).toContain('"deploy"');
-    expect(prompt).toContain("Ship code");
-    expect(prompt).toContain('"debug"');
     expect(prompt).toContain("Fix bugs");
-  });
-
-  it("uses 'No description' when a class has no description", () => {
-    const gate = makeGate([makeClass("deploy"), makeClass("debug")]);
-    const prompt = buildSystemPrompt(gate);
-
-    expect(prompt).toContain("No description");
+    expect(prompt).toContain("No JSON");
+    expect(prompt).not.toContain("distribution");
+    expect(prompt).not.toContain('{"label"');
   });
 });
 
 describe("buildSchema", () => {
-  it("builds a schema requiring every label in the distribution", () => {
-    const schema = buildSchema(["deploy", "debug"]);
-
-    expect(schema.schema.properties.distribution.required).toEqual(["deploy", "debug"]);
-    expect(schema.schema.properties.distribution.properties.deploy).toEqual({ type: "number" });
-  });
-
-  it("marks additionalProperties as false", () => {
-    const schema = buildSchema(["deploy"]);
-
-    expect(schema.schema.properties.distribution.additionalProperties).toBe(false);
-  });
-});
-
-describe("parseResponse", () => {
-  it("parses a clean JSON distribution into raw scores", () => {
-    const { scores } = parseResponse(
-      '{"reasoning":"x","distribution":{"deploy":0.7,"debug":0.3}}',
-      ["deploy", "debug"],
-    );
-
-    expect(scores.get("deploy")).toBeCloseTo(0.7);
-    expect(scores.get("debug")).toBeCloseTo(0.3);
-  });
-
-  it("strips markdown code fences", () => {
-    const { scores } = parseResponse(
-      '```json\n{"reasoning":"x","distribution":{"deploy":1,"debug":0}}\n```',
-      ["deploy", "debug"],
-    );
-
-    expect(scores.get("deploy")).toBe(1);
-  });
-
-  it("returns empty scores on invalid JSON", () => {
-    const { scores } = parseResponse("not json", ["deploy", "debug"]);
-
-    expect(scores.size).toBe(0);
-  });
-
-  it("returns empty scores when distribution is missing", () => {
-    const { scores } = parseResponse('{"reasoning":"x"}', ["deploy", "debug"]);
-
-    expect(scores.size).toBe(0);
-  });
-
-  it("clamps negative probabilities to 0", () => {
-    const { scores } = parseResponse(
-      '{"reasoning":"x","distribution":{"deploy":-0.5,"debug":1.5}}',
-      ["deploy", "debug"],
-    );
-
-    expect(scores.get("deploy")).toBe(0);
-  });
-
-  it("keeps raw non-normalized scores", () => {
-    const { scores } = parseResponse('{"reasoning":"x","distribution":{"deploy":2,"debug":2}}', [
-      "deploy",
-      "debug",
-    ]);
-
-    expect(scores.get("deploy")).toBe(2);
-  });
-
-  it("defaults a missing label to zero", () => {
-    const { scores } = parseResponse('{"reasoning":"x","distribution":{"deploy":1}}', [
-      "deploy",
-      "debug",
-    ]);
-
-    expect(scores.get("debug")).toBe(0);
-  });
-
-  it("attaches the reasoning sentence as evidence for every label", () => {
-    const { evidence } = parseResponse(
-      '{"reasoning":"ship it","distribution":{"deploy":1,"debug":0}}',
-      ["deploy", "debug"],
-    );
-
-    expect(evidence.get("deploy")).toEqual(["ship it"]);
-    expect(evidence.get("debug")).toEqual(["ship it"]);
+  it("returns undefined (no structured output requested)", () => {
+    expect(buildSchema(["deploy", "debug"])).toBeUndefined();
   });
 });
 
@@ -148,15 +98,15 @@ describe("LlmClassifier.classify", () => {
     expect(captured![1]).toEqual({ role: "user", content: "deploy" });
   });
 
-  it("normalizes the parsed distribution", async () => {
+  it("maps the single chosen label to prob 1 and the rest to 0", async () => {
     const client: LlmClient = {
-      complete: () => Promise.resolve('{"reasoning":"x","distribution":{"deploy":2,"debug":2}}'),
+      complete: () => Promise.resolve('{"label":"debug"}'),
     };
 
     const gate = makeGate([makeClass("deploy"), makeClass("debug")]);
     const result = await new LlmClassifier(client).classify("deploy", gate, "tenant-1");
 
-    expect(result.entries.get("deploy")!.prob).toBeCloseTo(0.5);
-    expect(result.entries.get("debug")!.prob).toBeCloseTo(0.5);
+    expect(result.entries.get("deploy")!.prob).toBe(0);
+    expect(result.entries.get("debug")!.prob).toBe(1);
   });
 });

@@ -2,20 +2,22 @@
  * Classifier Evaluation Runner
  *
  * Runs a single classifier (keyword | semantic | llm) against one or more
- * datasets and splits, writing per-prompt JSONL to runs/{dataset}/classifier/.
+ * datasets and splits for ONE label taxonomy (gate), writing per-prompt JSONL
+ * to runs/{dataset}/{gate}/classifier/.
  *
- * Prerequisite: datasets at evaluate/dataset/{name}/
- *   {name}.config.json          — gate config (classes, utterances, keywords)
- *   {name}.jsonl                — unsplit prompts
- *   {name}.val.jsonl            — validation split
- *   {name}.test.jsonl           — test split
+ * Prerequisite: flat datasets at evaluate/dataset/ as
+ *   {dataset}-fnl-company-opus.{val,test}.jsonl  (dataset: k8, cpython, vscode)
+ * with ground-truth labels in `adaptive_label` or `complexity_label`, plus the
+ * shared taxonomy gate configs request_type.config.json / complexity_tier.config.json.
  *
  * Usage:
  *   npx tsx evaluate/evaluator/runner/classifier.ts \
- *     --classifier semantic --dataset k8,nextjs --split val,test
+ *     --classifier semantic --dataset k8,cpython --split val,test \
+ *     --label-field adaptive_label
  *
  *   --classifier       keyword | semantic | llm | all (required)
- *   --dataset          k8,nextjs,pythonc,vscode (comma-separated, required)
+ *   --dataset          k8,cpython,vscode (comma-separated, required)
+ *   --label-field      adaptive_label | complexity_label (default: adaptive_label)
  *   --split            val,test (comma-separated, omit for unsplit dataset)
  *   --verbose          true | false
  *   --limit            max prompts per combo
@@ -24,15 +26,13 @@
  *   --llm-url          LLM API base URL (llm only, default: http://localhost:11434)
  *   --llm-model        LLM model name (default: qwen2.5:7b)
  *
- * Output: runs/{dataset}/classifier/{classifier}.{split}.jsonl
+ * Output: runs/{dataset}/{gate}/classifier/{classifier}.{split}.jsonl
  *   { id, truth, predicted, correct, scores, latencyMs }
  */
 
 import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { LlmClassifier } from "../../../src/routing/classifiers/llm.js";
-import { createEmbedClient } from "../../../src/lib/embed-client.js";
-import { initLlmClient } from "../../../src/lib/llm-client.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
 import {
   initDbAndSeed,
@@ -40,8 +40,11 @@ import {
   loadDataset,
   buildGate,
   formatProbs,
+  makeEmbedClient,
+  makeLlmClient,
   printPerClassSummary,
   parseBaseArgs,
+  resolveLabelField,
   writeRun,
   type ClassifierPrompt,
 } from "./shared.js";
@@ -68,6 +71,7 @@ interface EvalResult {
 
 async function main() {
   const raw = parseBaseArgs();
+  const labelField = resolveLabelField(raw);
 
   if (!raw.classifier) {
     console.error("Error: --classifier is required (keyword | semantic | llm | all)");
@@ -98,7 +102,7 @@ async function main() {
   let embedFn: ((text: string) => Promise<number[]>) | undefined;
   let tenantId = "";
   for (const ds of datasets) {
-    const config = loadConfig(ds);
+    const config = loadConfig(ds, labelField);
     const ctx = await initDbAndSeed(config, {
       indexEmbeddings: true,
       embeddingUrl,
@@ -120,11 +124,11 @@ async function main() {
     );
 
     for (const ds of datasets) {
-      const config = loadConfig(ds);
+      const config = loadConfig(ds, labelField);
       const gate = buildGate(config);
 
       for (const split of splits) {
-        const rows = loadDataset(ds, split);
+        const rows = loadDataset(ds, split, labelField);
 
         console.log(
           `\nGate: ${gate.name}  |  Classifier: ${classifierName}  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
@@ -159,7 +163,7 @@ async function main() {
       // Write per-combo raw results
       const outSuffix = split ? `.${split}` : "";
       lastRunPath = writeRun(
-        `${ds}/classifier/${classifierName}${outSuffix}.jsonl`,
+        `${ds}/${gate.name}/classifier/${classifierName}${outSuffix}.jsonl`,
         comboResults.map((r): ClassifierPrompt => ({
           id: r.id,
           truth: r.expected,
@@ -195,17 +199,15 @@ function buildClassifier(
   if (mode === "semantic") {
     const embedClient = embed
       ? { embed, dims: 0 }
-      : createEmbedClient({
-          baseUrl: args.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
-          model: args.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
-        });
+      : makeEmbedClient(
+          args.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
+          args.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+        );
     return new SemanticClassifier(embedClient);
   }
 
   if (mode === "llm") {
-    // createLlmClient appends "/v1/chat/completions", so strip any trailing "/v1".
-    const baseUrl = args.llmUrl.replace(/\/v1\/?$/, "").replace(/\/$/, "");
-    const client = initLlmClient({ baseUrl, model: args.llmModel });
+    const client = makeLlmClient(args.llmUrl, args.llmModel);
     return new LlmClassifier(client);
   }
 

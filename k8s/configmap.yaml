@@ -1,0 +1,47 @@
+# Non-secret app configuration.
+# - The env-style values below are referenced from deployment.yaml via configMapKeyRef.
+# - default-gates.yaml is a file, generated from config/default-gates.yaml:
+#     kubectl create configmap intent-router-config \
+#       --from-file=default-gates.yaml=config/default-gates.yaml \
+#       --from-literal=EMBED_BASE_URL=... --from-literal=EMBED_MODEL=... \
+#       --from-literal=EMBED_DIMS=... --from-literal=LLM_BASE_URL=... \
+#       --from-literal=LLM_MODEL=... --from-literal=MAX_PROMPT_LENGTH=... \
+#       --dry-run=client -o yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: intent-router-config
+data:
+  # --- Non-secret env (matches .env) ---
+  EMBED_BASE_URL: "https://llm-proxy.dev.outshift.ai/v1"
+  EMBED_MODEL: "openai/azure/text-embedding-3-small"
+  EMBED_DIMS: "1536"
+  LLM_BASE_URL: "https://llm-proxy.dev.outshift.ai/v1"
+  LLM_MODEL: "openai/onprem/gemma4"
+  MAX_PROMPT_LENGTH: "50000"
+
+  # --- File config ---
+  default-gates.yaml: |
+    models:
+      complexity-tier: complexity-tier
+
+    gates:
+      - name: complexity-tier
+        description: "Routes tasks by complexity tier."
+        config:
+          learningEnabled: true
+        classes:
+          - label: simple
+            description: "Simple, single-step tasks."
+            utterances:
+              - "What is the capital of France?"
+            keywords:
+              - simple
+              - easy
+          - label: complex
+            description: "Multi-step tasks requiring reasoning."
+            utterances:
+              - "Plan a multi-week project with dependencies."
+            keywords:
+              - complex
+              - hard

@@ -12,27 +12,119 @@ spec:
       labels:
         app: intent-router
     spec:
+      # Run as the non-root `node` user (uid 1000) baked into the image.
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+      terminationGracePeriodSeconds: 30  # time for SIGTERM graceful shutdown
       containers:
         - name: app
           image: intent-router:latest
+          imagePullPolicy: IfNotPresent   # local: image already loaded into the cluster (kind load)
           ports:
-            - containerPort: 3000
+            - containerPort: 8080
+            - containerPort: 8081
           env:
+            # --- Credentials (Secrets) ---
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: app-db-secret
                   key: DATABASE_URL
-            # Non-secret config — fill in your real endpoints/models.
+            - name: EMBED_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: EMBED_API_KEY
+            - name: LLM_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: LLM_API_KEY
+            - name: LITELLM_PROXY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: app-secret
+                  key: LITELLM_PROXY_TOKEN
+            # --- Non-secret config (ConfigMap) ---
             - name: EMBED_BASE_URL
-              value: "http://CHANGE_ME:8000"
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: EMBED_BASE_URL
             - name: EMBED_MODEL
-              value: "CHANGE_ME"
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: EMBED_MODEL
+            - name: EMBED_DIMS
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: EMBED_DIMS
             - name: LLM_BASE_URL
-              value: "http://CHANGE_ME:8000"
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: LLM_BASE_URL
             - name: LLM_MODEL
-              value: "CHANGE_ME"
-            # Optional: EMBED_API_KEY / LLM_API_KEY / EMBED_DIMS / MAX_PROMPT_LENGTH
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: LLM_MODEL
+            - name: MAX_PROMPT_LENGTH
+              valueFrom:
+                configMapKeyRef:
+                  name: intent-router-config
+                  key: MAX_PROMPT_LENGTH
+            # PORT / MCP_PORT use the app's code defaults (8080 / 8081).
+            - name: DEFAULT_GATES_CONFIG_PATH
+              value: "/app/config/default-gates.yaml"
+          # /health = liveness (process is up), /ready = readiness (DB reachable).
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 3
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: default-gates-config
+              mountPath: /app/config
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: default-gates-config
+          configMap:
+            name: intent-router-config
+            items:                    # mount ONLY the file, not the env keys
+              - key: default-gates.yaml
+                path: default-gates.yaml
+        - name: tmp
+          emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
@@ -42,5 +134,9 @@ spec:
   selector:
     app: intent-router
   ports:
-    - port: 80
-      targetPort: 3000
+    - name: http
+      port: 80
+      targetPort: 8080
+    - name: mcp
+      port: 8081
+      targetPort: 8081

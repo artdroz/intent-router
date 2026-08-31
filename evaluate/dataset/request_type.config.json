@@ -1,0 +1,132 @@
+{
+  "gate": {
+    "name": "request_type",
+    "description": "Classify the type of work a request asks for into exactly one request-type category.",
+    "classes": [
+      {
+        "label": "code_generation",
+        "description": "Write, create, implement, or build code, scripts, functions, or APIs — introducing net-new logic, features, or functionality rather than explaining or fixing existing code.",
+        "utterances": [
+          "add a new endpoint that streams paginated results to the client",
+          "implement a feature that exports reports in multiple file formats",
+          "write a function that validates nested configuration objects",
+          "create a CLI subcommand for scaffolding a new project",
+          "build a script that backfills missing records in the database",
+          "introduce a plugin hook so extensions can register custom commands",
+          "implement retry with exponential backoff for the HTTP client"
+        ],
+        "keywords": [
+          "add", "implement", "create", "write", "build", "generate", "scaffold", "support",
+          "feature", "function", "endpoint", "api", "cli", "plugin", "script", "new"
+        ]
+      },
+      {
+        "label": "code_understanding",
+        "description": "Explain, review, debug, fix, or trace existing code, bugs, or stack traces — making sense of how current code behaves rather than designing or building something new.",
+        "utterances": [
+          "explain how the scheduler decides which task to run next",
+          "trace the request path through the middleware to find where the header is dropped",
+          "review this pull request and summarize the behavior changes",
+          "what does this regex in the parser actually match",
+          "why does this query return duplicate rows",
+          "fix the null pointer in this handler when the session expires",
+          "walk me through how authentication tokens are refreshed"
+        ],
+        "keywords": [
+          "explain", "understand", "review", "trace", "investigate", "debug", "fix",
+          "how", "why", "what", "existing", "behavior", "bug", "error", "stack", "walk"
+        ]
+      },
+      {
+        "label": "technical_design",
+        "description": "Architect, model, or structure a system, infrastructure, or database, or compare technical trade-offs — designing approaches, contracts, schemas, and proposals before implementation.",
+        "utterances": [
+          "propose a design for splitting the monolith into two services",
+          "draft an RFC for the new plugin interface",
+          "design the schema for storing audit logs across regions",
+          "outline the migration strategy from polling to webhooks",
+          "spec the public API contract for the v2 endpoint",
+          "compare trade-offs between event sourcing and a transactional outbox",
+          "sketch the architecture for a multi-tenant deployment topology"
+        ],
+        "keywords": [
+          "design", "architecture", "architect", "rfc", "proposal", "contract", "schema",
+          "migrate", "migration", "strategy", "structure", "system", "trade-off", "trade-offs",
+          "spec", "interface", "database", "topology"
+        ]
+      },
+      {
+        "label": "analytical_reasoning",
+        "description": "Solve, compute, prove, or reason through math, logic, complex debugging, edge-case analysis, or any problem requiring multi-step technical reasoning.",
+        "utterances": [
+          "diagnose why the service deadlocks under high concurrency",
+          "track down the race condition between the two background workers",
+          "figure out why this loop intermittently skips the last element",
+          "root-cause the memory leak that appears only after several hours",
+          "reason about the edge cases in this date parsing function",
+          "prove that this concurrency control scheme cannot deadlock",
+          "compute the worst-case time complexity of this recursive function"
+        ],
+        "keywords": [
+          "solve", "compute", "prove", "reason", "logic", "math", "diagnose",
+          "race", "deadlock", "leak", "crash", "panic", "overflow", "edge",
+          "root-cause", "corrupt", "timeout", "regression"
+        ]
+      },
+      {
+        "label": "writing",
+        "description": "Draft, edit, rewrite, or translate prose, emails, essays, or documentation — producing or revising human-readable text rather than code.",
+        "utterances": [
+          "update the README quick-start with the new install command",
+          "write a user guide explaining the configuration options",
+          "translate the error messages in the UI to Spanish",
+          "document the release process in the contributor handbook",
+          "rewrite the API reference examples to match the current schema",
+          "draft an announcement email for the upcoming release",
+          "add a troubleshooting section to the setup page"
+        ],
+        "keywords": [
+          "document", "docs", "documentation", "readme", "guide", "reference", "translate",
+          "draft", "edit", "rewrite", "prose", "email", "essay", "manual", "overview",
+          "troubleshooting", "changelog", "instructions"
+        ]
+      },
+      {
+        "label": "factual_lookup",
+        "description": "Direct factual questions, definitions, or simple attributes — asking what something is, whether it is supported or compatible, or for a simple list or lookup.",
+        "utterances": [
+          "is this configuration option supported in the latest release",
+          "which minimum runtime version does this package require",
+          "list the available endpoints exposed by the service",
+          "what is the definition of this setting",
+          "is this library compatible with the newer platform version",
+          "clarify when this change takes effect",
+          "where is this option documented"
+        ],
+        "keywords": [
+          "clarify", "clarification", "supported", "compatible", "compatibility",
+          "definition", "define", "lookup", "list", "question", "consult", "fact"
+        ]
+      },
+      {
+        "label": "general",
+        "description": "Catch-all for configuration, general announcements, admin tasks, greetings, or anything that does not clearly fit another category.",
+        "utterances": [
+          "update the CI pipeline to run tests on the new branch",
+          "add a workflow that publishes the package on tagged releases",
+          "tweak the linter configuration to ignore generated files",
+          "bump the dependency to the latest patch release",
+          "refresh the CODEOWNERS file with the new team",
+          "announce the upcoming maintenance window to the team",
+          "reorder the checklist items in the issue template"
+        ],
+        "keywords": [
+          "ci", "cd", "workflow", "pipeline", "lint", "linter", "config", "configuration",
+          "codeowners", "bot", "label", "housekeeping", "chore", "template", "maintenance",
+          "cleanup", "bump", "upgrade", "pin", "dependency", "dependencies", "deps",
+          "announce", "announcement", "admin", "administrative"
+        ]
+      }
+    ]
+  }
+}

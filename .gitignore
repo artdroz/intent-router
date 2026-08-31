@@ -3,9 +3,8 @@ node_modules/
 
 # Environment and secrets
 .env
-
-# Operator project list (copy from projects.example.yaml)
-config/projects.yaml
+config/
+k8s/secrets.local.yaml
 
 # OS / editors
 .DS_Store
@@ -24,3 +23,6 @@ coverage/
 # Data artifacts (generated status, local exports)
 data/
 *.db
+
+# Composer
+docker-compose.yml

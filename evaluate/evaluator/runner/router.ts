@@ -4,21 +4,22 @@
  * Runs the full cascading pipeline: keyword + semantic pre-classify, then
  * LLM fallback when the gatekeeper is uncertain.
  *
- * Prerequisite: datasets at evaluate/dataset/{name}/
- *   {name}.config.json          — gate config (classes, utterances, keywords)
- *   {name}.jsonl                — unsplit prompts
- *   {name}.val.jsonl            — validation split
- *   {name}.test.jsonl           — test split
+ * Prerequisite: flat datasets at evaluate/dataset/ as
+ *   {dataset}-fnl-company-opus.{val,test}.jsonl  (dataset: k8, cpython, vscode)
+ * with ground-truth labels in `adaptive_label` or `complexity_label`, plus the
+ * shared taxonomy gate configs request_type.config.json / complexity_tier.config.json.
  *
  * Usage:
- *   npx tsx evaluate/evaluator/runner/router.ts --dataset k8,nextjs --split val,test
+ *   npx tsx evaluate/evaluator/runner/router.ts \
+ *     --dataset k8,cpython --split val,test --label-field adaptive_label
  *
- *   --dataset         k8,nextjs,pythonc,vscode (comma-separated, required)
+ *   --dataset         k8,cpython,vscode (comma-separated, required)
+ *   --label-field     adaptive_label | complexity_label (default: adaptive_label)
  *   --split           val,test (comma-separated, omit for unsplit)
  *   --verbose         true | false
  *   --limit           max prompts per combo
  *   --margin          margin threshold (default: 0.3)
- *   --entropy         entropy threshold (default: 1.3)
+ *   --entropy         entropy threshold (default: 0.8, normalized 0–1)
  *   --kw-weight       keyword weight in aggregation (default: 0.3)
  *   --sem-weight      semantic weight in aggregation (default: 0.7)
  *   --embedding-url   embedding API base URL
@@ -26,7 +27,7 @@
  *   --llm-url         LLM API base URL (default: http://localhost:11434)
  *   --llm-model       LLM model name (default: qwen2.5:7b)
  *
- * Output: runs/{dataset}/router/cascade.{split}.jsonl
+ * Output: runs/{dataset}/{gate}/router/cascade.{split}.jsonl
  *   { id, truth, predicted, correct, cascaded, preLatencyMs, llmLatencyMs, totalLatencyMs }
  */
 
@@ -34,16 +35,17 @@ import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { LlmClassifier } from "../../../src/routing/classifiers/llm.js";
 import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
-import { initLlmClient } from "../../../src/lib/llm-client.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
-import { createEmbedClient } from "../../../src/lib/embed-client.js";
 import {
   initDbAndSeed,
   loadConfig,
   loadDataset,
   buildGate,
+  makeEmbedClient,
+  makeLlmClient,
   printPerClassSummary,
   parseBaseArgs,
+  resolveLabelField,
   writeRun,
   type RouterPrompt,
 } from "./shared.js";
@@ -75,6 +77,7 @@ interface EvalResult {
 
 async function main() {
   const raw = parseBaseArgs();
+  const labelField = resolveLabelField(raw);
 
   if (!raw.dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -100,10 +103,10 @@ async function main() {
   const llmModel = raw["llm-model"] ?? DEFAULT_LLM_MODEL;
 
   // Seed all datasets
-  const embedClient = createEmbedClient({ baseUrl: embeddingUrl, model: embeddingModel });
+  const embedClient = makeEmbedClient(embeddingUrl, embeddingModel);
   let tenantId = "";
   for (const ds of datasets) {
-    const config = loadConfig(ds);
+    const config = loadConfig(ds, labelField);
     const ctx = await initDbAndSeed(config, {
       indexEmbeddings: true,
       embeddingUrl,
@@ -115,11 +118,7 @@ async function main() {
   // Build classifiers + cascade router (shared across datasets)
   const keyword = new KeywordClassifier();
   const semantic = new SemanticClassifier(embedClient);
-  const llmClient = initLlmClient({
-    baseUrl: llmUrl.replace(/\/v1\/?$/, "").replace(/\/$/, ""),
-    model: llmModel,
-  });
-  const llm = new LlmClassifier(llmClient);
+  const llm = new LlmClassifier(makeLlmClient(llmUrl, llmModel));
 
   const router = new CascadingRouter(keyword, semantic, llm, {
     marginThreshold: margin,
@@ -139,11 +138,11 @@ async function main() {
   const allResults: EvalResult[] = [];
 
   for (const ds of datasets) {
-    const config = loadConfig(ds);
+    const config = loadConfig(ds, labelField);
     const gate = buildGate(config);
 
     for (const split of splits) {
-      const rows = loadDataset(ds, split);
+      const rows = loadDataset(ds, split, labelField);
 
       console.log(
         `\nGate: ${gate.name}  |  Router: cascade  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
@@ -196,7 +195,7 @@ async function main() {
       // Write per-combo raw results
       const outSuffix = split ? `.${split}` : "";
       writeRun(
-        `${ds}/router/cascade${outSuffix}.jsonl`,
+        `${ds}/${gate.name}/router/cascade${outSuffix}.jsonl`,
         comboResults.map((r): RouterPrompt => ({
           id: r.id,
           truth: r.expected,

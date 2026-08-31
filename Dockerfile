@@ -1,20 +1,39 @@
-# Single-stage image that runs the TS source directly via tsx.
-# This matches the current `npm start` (tsx src/index.ts) and `db:migrate:prod`
-# (tsx scripts/migrate.ts), so the SAME image serves both the app container and
-# the migration Job.
-# Optimization (later): split into a multi-stage tsc build and run `node dist/index.js`.
+# Multi-stage build: 
+# Stage 1 compiles TypeScript (src/ + scripts/) to dist/,
+# Stage 2 runs only the compiled output with production dependencies.
+# The SAME image serves the app (dist/src/index.js), the migration Job
+# (dist/scripts/migrate.js), and ops/cron scripts (dist/scripts/*.js).
 
-FROM node:22-slim
-
+# ====== Stage 1: build the app ======
+FROM node:22-slim AS build
 WORKDIR /app
 
-# Dependencies first, for better layer caching.
-COPY package.json package-lock.json ./
+COPY package*.json ./
 RUN npm ci
 
-# Everything else — includes drizzle/ (SQL migrations) and scripts/.
 COPY . .
+RUN npm run build
 
-EXPOSE 3000
+# ====== Stage 2: run the app ======
+FROM node:22-slim AS runtime
+WORKDIR /app
 
-CMD ["npm", "start"]
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/drizzle ./drizzle
+COPY --from=build /app/config ./config
+
+USER node
+
+EXPOSE 8080 8081
+
+# Liveness probe: check if the app is running and responding to requests.
+# /ready checks the DB, so leave it to k8s' readiness probe.
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:8080/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "dist/src/index.js"]

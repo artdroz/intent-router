@@ -1,23 +1,24 @@
 /**
- * Combine-metrics — reads per-dataset metrics JSON from metrics/{stage}/ and
- * produces aggregated overall JSON in metrics/overall/ with weighted or macro averages
- * and variance across datasets.
+ * Combine-metrics — reads per-dataset metrics JSON from
+ * metrics/{stage}/{dataset}/{gate}/ and produces aggregated overall JSON in
+ * metrics/overall/ with weighted or macro averages and variance across datasets.
  *
- * Prerequisite: metrics/{stage}/{dataset}/*.json must exist (run
- *   compute-metrics.ts first).
+ * Prerequisite: metrics/{stage}/{dataset}/{gate}/*.json must exist (run
+ *   compute-metrics.ts first, with the same --label-field).
  *
  * Usage:
  *   npx tsx evaluate/evaluator/combine-metrics.ts \
- *     --stage classifier --dataset k8,nextjs
+ *     --stage classifier --dataset k8,cpython --label-field adaptive_label
  *   npx tsx evaluate/evaluator/combine-metrics.ts \
- *     --stage router --dataset k8,nextjs --split val
+ *     --stage router --dataset k8,cpython --split val --label-field complexity_label
  *
- *   --stage    classifier | pre-cascade | router | all (required)
- *   --dataset  k8,nextjs,pythonc,vscode (comma-separated, required)
- *   --split    val,test (comma-separated, omit to read unsplit files only)
+ *   --stage       classifier | pre-cascade | router | all (required)
+ *   --dataset     k8,cpython,vscode (comma-separated, required)
+ *   --label-field adaptive_label | complexity_label (default: adaptive_label)
+ *   --split       val,test (comma-separated, omit to read unsplit files only)
  *
- * Output: metrics/overall/{stage}.json
- *         metrics/overall/{stage}.{split}.json  (when --split)
+ * Output: metrics/overall/{stage}.{gate}.json
+ *         metrics/overall/{stage}.{gate}.{split}.json  (when --split)
  */
 
 import {
@@ -28,7 +29,7 @@ import {
 } from "node:fs";
 import { join, basename } from "node:path";
 import type { ClassifierPrompt } from "./runner/shared.js";
-import { ensureDir } from "./runner/shared.js";
+import { ensureDir, gateNameFor } from "./runner/shared.js";
 import { RUNS_DIR, METRICS_DIR } from "./config.js";
 
 // ── Types ──
@@ -148,7 +149,7 @@ interface OverallRouter {
 // ── Main ──
 
 async function main() {
-  const { stage, dataset, split } = parseArgs();
+  const { stage, dataset, split, labelField } = parseArgs();
 
   const allDatasets = listDatasets();
   if (allDatasets.length === 0) {
@@ -164,6 +165,8 @@ async function main() {
     console.error("Error: --stage is required (classifier | pre-cascade | router | all)");
     process.exit(1);
   }
+
+  const gateName = gateNameFor(labelField || "adaptive_label");
 
   const stages: readonly string[] = stage === "all"
     ? ALL_STAGES
@@ -183,19 +186,19 @@ async function main() {
   }
 
   const splitLabel = splits.map((s) => s ?? "-").join(",");
-  console.log(`Combining metrics for ${datasets.length} dataset(s): ${datasets.join(", ")} | splits: ${splitLabel}`);
+  console.log(`Combining metrics for ${datasets.length} dataset(s): ${datasets.join(", ")} | gate: ${gateName} | splits: ${splitLabel}`);
 
   for (const st of stages) {
     for (const sp of splits) {
       switch (st) {
         case "classifier":
-          handleClassifier(datasets, sp);
+          handleClassifier(datasets, sp, gateName);
           break;
         case "pre-cascade":
-          handlePreCascade(datasets, sp);
+          handlePreCascade(datasets, sp, gateName);
           break;
         case "router":
-          handleRouter(datasets, sp);
+          handleRouter(datasets, sp, gateName);
           break;
       }
     }
@@ -212,8 +215,8 @@ function listDatasets(): string[] {
     .map((d) => d.name);
 }
 
-function readJsonFiles<T>(stage: string, dataset: string, split?: string): Record<string, T> {
-  const dir = join(METRICS_DIR, stage, dataset);
+function readJsonFiles<T>(stage: string, dataset: string, split: string | undefined, gateName: string): Record<string, T> {
+  const dir = join(METRICS_DIR, stage, dataset, gateName);
   if (!existsSync(dir)) return {};
 
   const knownSplits = ["val", "test"];
@@ -250,7 +253,7 @@ function variance(values: number[]): number {
 
 // ── Stage: Classifier ──
 
-function handleClassifier(datasets: string[], split?: string) {
+function handleClassifier(datasets: string[], split: string | undefined, gateName: string) {
   // Collect all per-dataset classifier metrics
   type ClassifierMap = Map<
     string, // classifier name
@@ -269,7 +272,7 @@ function handleClassifier(datasets: string[], split?: string) {
   const byClassifier: ClassifierMap = new Map();
 
   for (const ds of datasets) {
-    const files = readJsonFiles<ClassifierMetrics>("classifier", ds, split);
+    const files = readJsonFiles<ClassifierMetrics>("classifier", ds, split, gateName);
     for (const [classifierName, m] of Object.entries(files)) {
       if (!byClassifier.has(classifierName)) {
         byClassifier.set(classifierName, []);
@@ -317,7 +320,7 @@ function handleClassifier(datasets: string[], split?: string) {
     const eceVariance = round(variance(entries.map((e) => e.ece)));
 
     // Pooled ECE: read raw runs and compute ECE across all datasets
-    const pooledEce = round(computePooledECE(name, entries.map((e) => e.dataset), split));
+    const pooledEce = round(computePooledECE(name, entries.map((e) => e.dataset), split, gateName));
 
     // Per-dataset breakdown
     const perDataset: OverallClassifier["classifiers"][string]["perDataset"] = {};
@@ -354,19 +357,20 @@ function handleClassifier(datasets: string[], split?: string) {
     classifiers,
   };
 
-  writeOverall("classifier", result, split);
+  writeOverall("classifier", result, split, gateName);
 }
 
 function computePooledECE(
   classifierName: string,
   datasetNames: string[],
-  split?: string,
+  split: string | undefined,
+  gateName: string,
 ): number {
   // Pool all raw predictions across datasets
   const allPrompts: ClassifierPrompt[] = [];
 
   for (const ds of datasetNames) {
-    const runsDir = join(RUNS_DIR, ds, "classifier");
+    const runsDir = join(RUNS_DIR, ds, gateName, "classifier");
     const suffix = split ? `.${split}` : "";
     const jsonlPath = join(runsDir, `${classifierName}${suffix}.jsonl`);
     if (!existsSync(jsonlPath)) continue;
@@ -412,7 +416,7 @@ function top1(p: { scores: Record<string, number> }): number {
 
 // ── Stage: Pre-Cascade ──
 
-function handlePreCascade(datasets: string[], split?: string) {
+function handlePreCascade(datasets: string[], split: string | undefined, gateName: string) {
   // Group by param key across datasets
   type ParamsMap = Map<
     string, // param key
@@ -429,7 +433,7 @@ function handlePreCascade(datasets: string[], split?: string) {
   const byParams: ParamsMap = new Map();
 
   for (const ds of datasets) {
-    const files = readJsonFiles<PreCascadeMetrics>("pre-cascade", ds, split);
+    const files = readJsonFiles<PreCascadeMetrics>("pre-cascade", ds, split, gateName);
     for (const [paramKey, m] of Object.entries(files)) {
       if (!byParams.has(paramKey)) {
         byParams.set(paramKey, []);
@@ -506,12 +510,12 @@ function handlePreCascade(datasets: string[], split?: string) {
     runs,
   };
 
-  writeOverall("pre-cascade", result, split);
+  writeOverall("pre-cascade", result, split, gateName);
 }
 
 // ── Stage: Router ──
 
-function handleRouter(datasets: string[], split?: string) {
+function handleRouter(datasets: string[], split: string | undefined, gateName: string) {
   const entries: {
     dataset: string;
     promptCount: number;
@@ -522,7 +526,7 @@ function handleRouter(datasets: string[], split?: string) {
   }[] = [];
 
   for (const ds of datasets) {
-    const files = readJsonFiles<RouterMetrics>("router", ds, split);
+    const files = readJsonFiles<RouterMetrics>("router", ds, split, gateName);
     for (const [, m] of Object.entries(files)) {
       entries.push({
         dataset: ds,
@@ -582,15 +586,15 @@ function handleRouter(datasets: string[], split?: string) {
     perDataset,
   };
 
-  writeOverall("router", result, split);
+  writeOverall("router", result, split, gateName);
 }
 
 // ── Write ──
 
-function writeOverall(stage: string, data: unknown, split?: string): void {
+function writeOverall(stage: string, data: unknown, split: string | undefined, gateName: string): void {
   const outDir = join(METRICS_DIR, "overall");
   ensureDir(outDir);
-  const filename = split ? `${stage}.${split}.json` : `${stage}.json`;
+  const filename = split ? `${stage}.${gateName}.${split}.json` : `${stage}.${gateName}.json`;
   const outPath = join(outDir, filename);
   writeFileSync(outPath, JSON.stringify(data, null, 2), "utf-8");
   console.log(`Overall metrics → ${outPath}`);
@@ -612,6 +616,7 @@ function parseArgs() {
     stage: raw.stage as string,
     dataset: raw.dataset as string | undefined,
     split: raw.split as string | undefined,
+    labelField: raw["label-field"] as string | undefined,
   };
 }
 

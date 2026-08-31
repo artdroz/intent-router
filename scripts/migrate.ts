@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
@@ -12,9 +13,22 @@ if (!url) {
   process.exit(1);
 }
 
-// Anchor the migrations folder to this script, independent of CWD.
+// Locate the drizzle/ migrations folder relative to this script, independent
+// of CWD. Works when run from source (tsx scripts/migrate.ts → <root>/scripts)
+// and from the compiled build (node dist/scripts/migrate.js → <root>/dist/scripts):
+// walk up from the script's own directory until a "drizzle" dir is found.
+function findMigrationsFolder(startDir: string): string {
+  let dir = startDir;
+  for (let i = 0; i < 5; i++) {
+    const candidate = path.join(dir, "drizzle");
+    if (existsSync(candidate)) return candidate;
+    dir = path.dirname(dir);
+  }
+  throw new Error("Could not locate the drizzle/ migrations folder");
+}
+
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationsFolder = path.join(here, "..", "drizzle");
+const migrationsFolder = findMigrationsFolder(here);
 
 // Hold a session-level advisory lock across the whole migration run so
 // multiple pods starting at once don't apply the same migration concurrently.

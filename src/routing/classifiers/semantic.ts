@@ -80,13 +80,21 @@ export function aggregateSemantic(
     evidence.set(row.label, list);
   }
 
-  // TODO: Rethink about how to handle empty distribution
-  // If nothing cleared the similarity threshold, fall back to the single
-  // nearest neighbor so the classifier never returns an empty distribution.
+  // If nothing cleared the similarity threshold, spread the probability over
+  // all returned neighbours (weighted by similarity) instead of collapsing to
+  // the single nearest neighbour, so the cascade gatekeeper sees honest
+  // uncertainty rather than a false 100% confidence.
   if (scores.size === 0 && rows.length > 0) {
-    const nearest = rows[0];
-    scores.set(nearest.label, 1 - nearest.distance);
-    evidence.set(nearest.label, [nearest.content]);
+    for (const row of rows) {
+      const sim = 1 - row.distance;
+      const multiplier = row.source === "config" ? configWeight : feedbackWeight;
+      const weighted = sim * multiplier;
+      scores.set(row.label, (scores.get(row.label) ?? 0) + weighted);
+
+      const list = evidence.get(row.label) ?? [];
+      list.push(row.content);
+      evidence.set(row.label, list);
+    }
   }
 
   return { classifier: "semantic", entries: buildResult(scores, evidence) };

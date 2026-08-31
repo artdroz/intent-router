@@ -12,7 +12,21 @@ models:
 
 gates:
   - name: complexity-tier
-    description: ""
+    description: "Routes tasks by complexity tier."
     config:
       learningEnabled: true
-    classes: []
+    classes:
+      - label: simple
+        description: "Simple, single-step tasks."
+        utterances:
+          - "What is the capital of France?"
+        keywords:
+          - simple
+          - easy
+      - label: complex
+        description: "Multi-step tasks requiring reasoning."
+        utterances:
+          - "Plan a multi-week project with dependencies."
+        keywords:
+          - complex
+          - hard

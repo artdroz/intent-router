@@ -3,8 +3,9 @@
  *
  * Used by:
  *   - classifier.ts      (classifier accuracy eval)
+ *   - pre-cascade.ts     (pre-cascade tuning, no LLM)
  *   - router.ts          (cascade router eval with LLM)
- *   - router-pre-cascade.ts  (pre-cascade tuning, no LLM)
+ *   - tune-thresholds.ts (threshold sweep over val runs)
  */
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
@@ -15,16 +16,19 @@ import { createGate } from "../../../src/store/gates.js";
 import { insertMany, type NewEmbeddingInput } from "../../../src/store/embeddings.js";
 import { findKeyByName, insertKey } from "../../../src/store/api-keys.js";
 import { gates as gatesTable, classes as classesTable, tenants as tenantsTable } from "../../../src/store/schema.js";
-import { createEmbedClient } from "../../../src/lib/embed-client.js";
+import { createEmbedClient, type EmbedClient } from "../../../src/lib/embed-client.js";
+import { initLlmClient, type LlmClient } from "../../../src/lib/llm-client.js";
 import type { Gate } from "../../../src/gates/types.js";
-import { DEFAULT_EMBEDDING_URL, DEFAULT_EMBEDDING_MODEL } from "../config.js";
-
-// Load .env so standalone `npx tsx ...` runs pick up DATABASE_URL / API keys.
-try {
-  process.loadEnvFile?.();
-} catch {
-  // No .env file — rely on ambient environment variables.
-}
+import {
+  DATABASE_URL,
+  DEFAULT_EMBEDDING_URL,
+  DEFAULT_EMBEDDING_MODEL,
+  EMBED_API_KEY,
+  EMBED_DIMS,
+  LLM_API_KEY,
+  REQUEST_INTERVAL_MS,
+  RETRY_DELAY_MS,
+} from "../config.js";
 
 // ── Dataset Types ──
 
@@ -60,33 +64,206 @@ export interface BaseArgs {
 
 // ── Data Loading ──
 
-export function loadConfig(dataset: string): DatasetConfig {
-  const path = `evaluate/dataset/${dataset}/${dataset}.config.json`;
+/**
+ * The dataset files under evaluate/dataset/ use the flat naming convention
+ *   {dataset}-fnl-company-opus.{split}.jsonl
+ * e.g. k8-fnl-company-opus.val.jsonl.  They also carry the label in either
+ * `adaptive_label` (request_type taxonomy) or `complexity_label`
+ * (complexity_tier taxonomy) rather than a bare `label` field.
+ *
+ * Legacy per-dataset directories (evaluate/dataset/{dataset}/) are still
+ * supported for backwards compatibility.
+ */
+const FLAT_DATASET_INFIX = "-fnl-company-opus";
+
+/**
+ * Known label taxonomies.  Each dataset row carries one of these fields; the
+ * value selects both the gate config file and the gate (directory) name used
+ * for run/metric output.
+ */
+const TAXONOMIES: Record<string, { configFile: string; gateName: string }> = {
+  adaptive_label: { configFile: "request_type.config.json", gateName: "request_type" },
+  complexity_label: { configFile: "complexity_tier.config.json", gateName: "complexity_tier" },
+};
+
+/** Aliases so `--label-field` also accepts the gate/taxonomy name. */
+const LABEL_FIELD_ALIASES: Record<string, string> = {
+  request_type: "adaptive_label",
+  complexity_tier: "complexity_label",
+};
+
+/** Resolve which dataset field holds the ground-truth label. */
+export function resolveLabelField(raw: Record<string, string>): string {
+  const field = raw["label-field"] ?? process.env.LABEL_FIELD ?? "adaptive_label";
+  return LABEL_FIELD_ALIASES[field] ?? field;
+}
+
+/** The gate name (run/metric directory) for a label field. */
+export function gateNameFor(labelField: string): string {
+  return TAXONOMIES[labelField]?.gateName ?? labelField;
+}
+
+function resolveConfigPath(dataset: string, labelField: string): string {
+  const taxonomy = TAXONOMIES[labelField];
+  if (taxonomy) {
+    const flatPath = `evaluate/dataset/${taxonomy.configFile}`;
+    if (existsSync(flatPath)) return flatPath;
+  }
+  const legacyPath = `evaluate/dataset/${dataset}/${dataset}.config.json`;
+  if (existsSync(legacyPath)) return legacyPath;
+  throw new Error(
+    `No gate config found for dataset "${dataset}" (label field "${labelField}"). ` +
+      `Expected a taxonomy config (${Object.values(TAXONOMIES).map((t) => t.configFile).join(", ")}) ` +
+      `or ${legacyPath}.`,
+  );
+}
+
+export function loadConfig(
+  dataset: string,
+  labelField: string = "adaptive_label",
+): DatasetConfig {
+  const path = resolveConfigPath(dataset, labelField);
   return JSON.parse(readFileSync(path, "utf-8")) as DatasetConfig;
 }
 
-export function loadDataset(dataset: string, split?: string): DatasetRow[] {
+function resolveDatasetPath(dataset: string, split?: string): string {
   const suffix = split ? `.${split}` : "";
-  const path = `evaluate/dataset/${dataset}/${dataset}${suffix}.jsonl`;
+  const candidates = [
+    `evaluate/dataset/${dataset}/${dataset}${suffix}.jsonl`,
+    `evaluate/dataset/${dataset}${suffix}.jsonl`,
+    `evaluate/dataset/${dataset}${FLAT_DATASET_INFIX}${suffix}.jsonl`,
+  ];
+  const path = candidates.find((p) => existsSync(p));
+  if (!path) {
+    throw new Error(
+      `Dataset file not found for "${dataset}" (split "${split ?? "-"}"). Tried:\n` +
+        candidates.map((c) => `  - ${c}`).join("\n"),
+    );
+  }
+  return path;
+}
+
+export function loadDataset(
+  dataset: string,
+  split?: string,
+  labelField: string = "adaptive_label",
+): DatasetRow[] {
+  const path = resolveDatasetPath(dataset, split);
   const raw = readFileSync(path, "utf-8");
   return raw
     .split("\n")
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as DatasetRow);
+    .map((line) => {
+      const obj = JSON.parse(line) as Record<string, unknown>;
+      const label = obj[labelField] ?? obj["label"];
+      if (typeof label !== "string" || typeof obj.prompt !== "string") {
+        throw new Error(
+          `Row in ${path} is missing "${labelField}" (or "label") or "prompt".`,
+        );
+      }
+      return { id: String(obj.id), label, prompt: obj.prompt };
+    });
+}
+
+// ── Client Construction ──
+
+/**
+ * Normalize a base URL for the OpenAI-compatible clients.  Both clients append
+ * their own `/v1/...` path, so a base URL that already ends in `/v1` (e.g. the
+ * `*_BASE_URL` values in .env) must have that suffix stripped first.
+ */
+export function normalizeBaseUrl(url: string): string {
+  return url.replace(/\/v1\/?$/, "").replace(/\/$/, "");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Shared throttle across both clients (they hit the same host): guarantees a
+// minimum gap between outbound requests to stay under the endpoint rate limit.
+let lastRequestAt = 0;
+let throttleQueue: Promise<void> = Promise.resolve();
+
+function throttleRequest(): Promise<void> {
+  const next = throttleQueue.then(async () => {
+    const now = Date.now();
+    const wait = lastRequestAt + REQUEST_INTERVAL_MS - now;
+    if (wait > 0) await sleep(wait);
+    lastRequestAt = Date.now();
+  });
+  throttleQueue = next.catch(() => {});
+  return next;
+}
+
+/**
+ * Retry a client call forever with a fixed delay, until the process is killed
+ * (rides out transient 429/403 from the company LLM/embed endpoint).
+ */
+async function withRetry<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  let attempt = 0;
+  for (;;) {
+    try {
+      return await fn();
+    } catch (err) {
+      attempt++;
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(
+        `[retry] ${label} attempt ${attempt} failed: ${msg} — retrying in ${RETRY_DELAY_MS / 1000}s (Ctrl+C to stop)`,
+      );
+      await sleep(RETRY_DELAY_MS);
+    }
+  }
+}
+
+/** Embed client wired with EMBED_API_KEY / EMBED_DIMS, throttled and retried. */
+export function makeEmbedClient(url: string, model: string): EmbedClient {
+  const client = createEmbedClient({
+    baseUrl: normalizeBaseUrl(url),
+    model,
+    apiKey: EMBED_API_KEY,
+    dims: EMBED_DIMS,
+  });
+  return {
+    get dims() {
+      return client.dims;
+    },
+    embed: (text) =>
+      withRetry(`embed (${model})`, async () => {
+        await throttleRequest();
+        return client.embed(text);
+      }),
+  };
+}
+
+/** LLM client wired with LLM_API_KEY, throttled and retried. */
+export function makeLlmClient(url: string, model: string) {
+  const client = initLlmClient({
+    baseUrl: normalizeBaseUrl(url),
+    model,
+    apiKey: LLM_API_KEY,
+  });
+  const complete: LlmClient["complete"] = (messages, responseFormat) =>
+    withRetry(`llm (${model})`, async () => {
+      await throttleRequest();
+      return client.complete(messages, responseFormat);
+    });
+  return { complete };
 }
 
 export function buildGate(config: DatasetConfig): Gate {
   return {
     id: 0,
+    tenantId: null,
     name: config.gate.name,
     description: config.gate.description,
     config: { learningEnabled: true },
     classes: config.gate.classes.map((c) => ({
+      id: 0,
       label: c.label,
       description: c.description,
       utterances: c.utterances,
       keywords: c.keywords,
-      promotedKeywords: [],
     })),
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -96,6 +273,8 @@ export function buildGate(config: DatasetConfig): Gate {
 // ── DB Init + Seeding ──
 
 export interface DbContext {
+  /** Tenant the seeded gate belongs to. */
+  tenantId: string;
   /** Embed function (only available when indexEmbeddings=true). */
   embed?: (text: string) => Promise<number[]>;
 }
@@ -115,7 +294,7 @@ export async function initDbAndSeed(
     embeddingModel?: string;
   } = {},
 ): Promise<DbContext> {
-  const databaseUrl = process.env.DATABASE_URL;
+  const databaseUrl = DATABASE_URL;
   if (!databaseUrl) {
     throw new Error(
       "DATABASE_URL is required — run with env set (e.g. `DATABASE_URL=... npx tsx ...`).",
@@ -130,10 +309,10 @@ export async function initDbAndSeed(
 
   // Index embeddings
   if (opts.indexEmbeddings) {
-    const embedder = createEmbedClient({
-      baseUrl: opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
-      model: opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
-    });
+    const embedder = makeEmbedClient(
+      opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
+      opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+    );
     const rows: NewEmbeddingInput[] = [];
     for (const cls of gate.classes) {
       for (const utterance of cls.utterances) {
@@ -151,10 +330,10 @@ export async function initDbAndSeed(
     console.log(
       `Indexed ${rows.length} embeddings for ${gate.classes.length} classes.`,
     );
-    return { embed: embedder.embed };
+    return { tenantId: apiKey.tenantId, embed: embedder.embed };
   }
 
-  return {};
+  return { tenantId: apiKey.tenantId };
 }
 
 const EVAL_API_KEY_NAME = "eval";

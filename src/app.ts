@@ -24,8 +24,8 @@ const envSchema = {
     "LITELLM_PROXY_TOKEN",
   ],
   properties: {
-    PORT: { type: "number", default: 3010 },
-    MCP_PORT: { type: "number", default: 3101 },
+    PORT: { type: "number", default: 8080 },
+    MCP_PORT: { type: "number", default: 8081 },
     DATABASE_URL: { type: "string" },
     EMBED_BASE_URL: { type: "string" },
     EMBED_MODEL: { type: "string" },

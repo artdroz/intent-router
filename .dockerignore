@@ -4,14 +4,15 @@ dist
 .git
 .env
 *.log
-
-# Operator project list
-config/projects.yaml
-
-# Local data
+*.md
+docs
 data
 *.db
 evaluate
+
+# Deployment & DB bootstrap files (not needed in the app image)
+k8s
+config/init-db.sql
 
 # OS noise
 .DS_Store

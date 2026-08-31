@@ -9,17 +9,35 @@ metadata:
   name: intent-router-migrate
 spec:
   backoffLimit: 3
-  ttlSecondsAfterFinished: 600  # auto-delete the finished Job after 10 minutes
+  activeDeadlineSeconds: 300        # fail fast instead of hanging forever
+  ttlSecondsAfterFinished: 600      # auto-delete the finished Job after 10 minutes
   template:
     spec:
       restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
       containers:
         - name: migrate
           image: intent-router:latest
-          command: ["npm", "run", "db:migrate:prod"]
+          imagePullPolicy: IfNotPresent   # local: image already loaded into the cluster (kind load)
+          command: ["node", "dist/scripts/migrate.js"]
           env:
             - name: DATABASE_URL
               valueFrom:
                 secretKeyRef:
                   name: migrate-db-secret
                   key: DATABASE_URL
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

@@ -7,20 +7,22 @@
  * Silent Error Rate = wrong predictions NOT cascaded (should have cascaded).
  * Regret Cascade Rate = correct predictions that DID cascade (wasted LLM).
  *
- * Prerequisite: runs/{dataset}/pre-cascade/*.val.jsonl must exist (run
+ * Prerequisite: runs/{dataset}/{gate}/pre-cascade/*.val.jsonl must exist (run
  *   pre-cascade.ts with --split val first).
  *
  * Usage:
  *   npx tsx evaluate/evaluator/runner/tune-thresholds.ts
- *   npx tsx evaluate/evaluator/runner/tune-thresholds.ts --w-error 2.0 --w-doubt 1.0 --dataset k8,nextjs
+ *   npx tsx evaluate/evaluator/runner/tune-thresholds.ts \
+ *     --w-error 2.0 --w-doubt 1.0 --dataset k8,cpython --label-field adaptive_label
  *
  *   --w-error       weight for silent errors (default: 1.0)
  *   --w-doubt       weight for regret cascades (default: 2.0)
- *   --dataset       k8,nextjs,pythonc,vscode (comma-separated, required)
+ *   --dataset       k8,cpython,vscode (comma-separated, required)
+ *   --label-field   adaptive_label | complexity_label (default: adaptive_label)
  *   --margin-min    sweep start (default: 0)
  *   --margin-max    sweep end   (default: 1.0)
  *   --entropy-min   sweep start (default: 0)
- *   --entropy-max   sweep end   (default: 3.0)
+ *   --entropy-max   sweep end   (default: 1.0)
  *   --step          sweep step  (default: 0.05)
  *   --top           combinations to show (default: 15)
  */
@@ -38,6 +40,7 @@ import {
   DEFAULT_SWEEP_STEP,
   DEFAULT_SWEEP_TOP,
 } from "../config.js";
+import { gateNameFor } from "./shared.js";
 
 // ── Types ──
 
@@ -75,7 +78,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const RUNS_DIR = resolve(__dirname, "../../runs");
 
-function findValRuns(datasetFilter?: string[]): Array<{ dataset: string; filePath: string; paramTag: string }> {
+function findValRuns(datasetFilter: string[] | undefined, gateName: string): Array<{ dataset: string; filePath: string; paramTag: string }> {
   const runs: Array<{ dataset: string; filePath: string; paramTag: string }> = [];
   const datasets = readdirSync(RUNS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -83,7 +86,7 @@ function findValRuns(datasetFilter?: string[]): Array<{ dataset: string; filePat
 
   for (const ds of datasets) {
     if (datasetFilter && !datasetFilter.includes(ds)) continue;
-    const preDir = join(RUNS_DIR, ds, "pre-cascade");
+    const preDir = join(RUNS_DIR, ds, gateName, "pre-cascade");
     if (!existsSync(preDir)) continue;
 
     const files = readdirSync(preDir).filter((f) => f.endsWith(".val.jsonl"));
@@ -206,12 +209,14 @@ function main() {
     process.exit(1);
   }
 
+  const gateName = gateNameFor(raw["label-field"] || "adaptive_label");
+
   const marginMin = raw["margin-min"] ? parseFloat(raw["margin-min"]) : DEFAULT_SWEEP_MARGIN_MIN;
   const marginMax = raw["margin-max"] ? parseFloat(raw["margin-max"]) : DEFAULT_SWEEP_MARGIN_MAX;
   const entropyMin = raw["entropy-min"] ? parseFloat(raw["entropy-min"]) : DEFAULT_SWEEP_ENTROPY_MIN;
   const entropyMax = raw["entropy-max"] ? parseFloat(raw["entropy-max"]) : DEFAULT_SWEEP_ENTROPY_MAX;
 
-  const runs = findValRuns(datasetFilter);
+  const runs = findValRuns(datasetFilter, gateName);
   if (runs.length === 0) {
     console.log("No pre-cascade *.val.jsonl runs found.");
     return;

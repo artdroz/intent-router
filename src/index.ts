@@ -22,7 +22,9 @@ process.on("SIGINT", () => void shutdown("SIGINT"));
 process.on("SIGTERM", () => void shutdown("SIGTERM"));
 
 try {
-  await app.listen({ port: app.config.PORT });
+  // Bind 0.0.0.0 so the port is reachable from outside the container
+  // (Fastify defaults to localhost, which only works on the host itself).
+  await app.listen({ port: app.config.PORT, host: "0.0.0.0" });
 } catch (err) {
   app.log.error(err);
   process.exit(1);

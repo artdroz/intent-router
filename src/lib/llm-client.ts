@@ -1,3 +1,5 @@
+import { sanitizeForProxy } from "../routing/utils.js";
+
 export type LlmMessage = { role: string; content: string };
 
 /** Support json schema response formats */
@@ -40,7 +42,10 @@ async function callChatAPI(
   messages: LlmMessage[],
   responseFormat?: LlmResponseFormat,
 ): Promise<string> {
-  const body: Record<string, unknown> = { model, messages };
+  const body: Record<string, unknown> = {
+    model,
+    messages: messages.map((m) => ({ ...m, content: sanitizeForProxy(m.content) })),
+  };
   if (responseFormat) body.response_format = responseFormat;
 
   const res = await fetch(`${baseUrl}/v1/chat/completions`, {

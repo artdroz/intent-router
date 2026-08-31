@@ -4,7 +4,7 @@ export const KW_FEEDBACK_WEIGHT = 1.0;
 
 // Semantic classifier
 export const SEM_TOP_K = 10;
-export const SEM_SIMILARITY_THRESHOLD = 0.7;
+export const SEM_SIMILARITY_THRESHOLD = 0.25;
 export const SEM_CONFIG_WEIGHT = 1.2;
 export const SEM_FEEDBACK_WEIGHT = 1.0;
 
@@ -12,7 +12,8 @@ export const SEM_FEEDBACK_WEIGHT = 1.0;
 export const CAS_KW_WEIGHT = 0.3;
 export const CAS_SEM_WEIGHT = 0.7;
 export const CAS_MARGIN_THRESHOLD = 0.15;
-export const CAS_ENTROPY_THRESHOLD = 1.2;
+/** Entropy is normalized to [0, 1] (see computeEntropy). */
+export const CAS_ENTROPY_THRESHOLD = 0.8;
 export const CAS_KEYWORD_GATE_BOOST = 1.5; // TODO: Need tuning
 
 // Keyword learning (TF-IDF)

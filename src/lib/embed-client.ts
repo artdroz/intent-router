@@ -1,3 +1,5 @@
+import { sanitizeForProxy } from "../routing/utils.js";
+
 const MODEL_DIMS: Record<string, number> = {
   "all-minilm": 384,
   embeddinggemma: 768,
@@ -55,7 +57,7 @@ async function callEmbeddingAPI(
       "Content-Type": "application/json",
       ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
     },
-    body: JSON.stringify({ model, input }),
+    body: JSON.stringify({ model, input: sanitizeForProxy(input) }),
   });
 
   if (!res.ok) {

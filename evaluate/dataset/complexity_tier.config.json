@@ -1,0 +1,92 @@
+{
+  "gate": {
+    "name": "complexity_tier",
+    "description": "Classify a request into exactly one complexity tier using a two-dimensional matrix: reasoning depth (logical hops, hypothesis-verification cycles) and execution scope (files, integrations, structural breadth). Rules: (1) Depth overrides scope — a task needing BOTH massive scope AND high multi-hop reasoning is reasoning. (2) Not all bugs are reasoning — an error pointing to the exact fault (e.g. 'SyntaxError: expected } at line 42') is medium; a vague failure or an error that does not reflect the root cause (e.g. 'app randomly crashes in production') is reasoning. (3) Judge by signal-to-noise ratio, not word count — a short prompt needing deep deduction, or a huge noisy log hiding a single clue, are both reasoning.",
+    "classes": [
+      {
+        "label": "simple",
+        "description": "Low reasoning depth and low execution scope. Covers BOTH: (a) trivial single-step technical fixes — typos, a CSS/hex value change, an API glossary lookup, a document update; and (b) no actionable task — administrative notes, project-tracker checklists, or feature-request/bug-report descriptions that ask for no code, design, or analysis. No synthesis or structural understanding required.",
+        "utterances": [
+          "Feature request describing a small UI preference change, with no implementation details requested",
+          "Project tracker checklist marking rollout steps as completed or still pending",
+          "Question asking when a feature will ship in the next release",
+          "Bug report noting a missing setting label, with a one-line fix",
+          "The README quick start still shows the old install command and needs updating",
+          "There is a typo in an error message string that should be corrected",
+          "Rename a variable in one file to match the naming convention",
+          "The brand color in the stylesheet is a hardcoded hex value and needs replacing",
+          "The documentation lists a default value that no longer matches the code",
+          "Reserve an issue number for an upcoming fix, with no technical detail yet"
+        ],
+        "keywords": [
+          "simple", "trivial", "rename", "typo", "typos", "format", "list", "lookup",
+          "cosmetic", "minor", "comment", "default", "version", "spelling", "grammar",
+          "wording", "quick", "direct"
+        ]
+      },
+      {
+        "label": "medium",
+        "description": "Moderate reasoning depth, low-to-moderate scope. Standard engineering or API-design work with a linear solution path: the target file, required action, or root cause is stated explicitly in the prompt or error log. Example: 'SyntaxError: expected } at line 42' — the fault is evident, so fix it directly. Apply existing knowledge; do not investigate root causes.",
+        "utterances": [
+          "Add pagination to the existing list endpoint following the pattern already used by the session list",
+          "The stack trace points to a null dereference at a specific line, fix that site",
+          "Wire a new configuration flag from the settings schema through to the handler",
+          "Extract this repeated logic into a shared helper function",
+          "Add a unit test covering the edge case described in the report",
+          "Update the client to use the new error type across all call sites",
+          "The error message says the module is missing, so install and import it",
+          "Implement a small feature with a clearly specified interface and requirements",
+          "Add validation for a new input field with an explicit schema",
+          "Migrate a single component to the new hooks pattern"
+        ],
+        "keywords": [
+          "add", "update", "extend", "refactor", "implement", "feature", "function",
+          "unit", "endpoint", "handler", "helper", "wire", "flag", "config", "moderate",
+          "explicit"
+        ]
+      },
+      {
+        "label": "complex",
+        "description": "Low-to-moderate reasoning depth, HIGH execution scope. The solution path is KNOWN and deterministic, but execution spans many files, services, or dependencies: schema migrations, bulk mechanical refactors, vendor upgrades, full CRUD boilerplate across 10+ files. High effort, no detective work. Contrast: 'migrate the schema across 10 services' = complex; 'find the race hidden across 10 files' = reasoning.",
+        "utterances": [
+          "Migrate the database schema across every service that depends on it",
+          "Upgrade the vendored dependency and update every call site in the repository",
+          "Generate the full CRUD scaffolding for this entity from the specification",
+          "Apply the same mechanical refactor across more than ten files",
+          "Coordinate version bumps across multiple repositories in one release",
+          "Roll out the new API contract to every client integration",
+          "Deprecate the legacy interface across all remaining components",
+          "Split the monolith into two services and wire up a message queue between them",
+          "Introduce multi-tenancy with per-tenant schema isolation across the stack",
+          "Implement an event-driven pipeline with an outbox and dead-letter handling"
+        ],
+        "keywords": [
+          "migrate", "migration", "upgrade", "vendor", "dependency", "dependencies",
+          "schema", "scaffold", "boilerplate", "across", "multiple", "repos",
+          "repositories", "services", "rollout", "deprecate", "mechanical", "bulk"
+        ]
+      },
+      {
+        "label": "reasoning",
+        "description": "High reasoning depth at ANY scope. The solution path is UNKNOWN or non-linear: form and test hypotheses, trace subtle interactions, evaluate trade-offs, or filter noise to find a hidden root cause. Examples: race conditions, memory leaks, flaky or intermittent failures, 'app randomly crashes in production', a root cause hidden in a massive unstructured log dump, a novel algorithm, or contradictory architectural constraints. Depth overrides scope.",
+        "utterances": [
+          "Diagnose the intermittent crash that only reproduces in production",
+          "Root-cause the race condition between the two background workers",
+          "Trace the memory leak that appears only after several hours of load",
+          "Investigate why this flaky test fails only under load",
+          "The app randomly crashes in production with no obvious trigger, find the root cause",
+          "Find the single clue hidden in this large unstructured log dump",
+          "Prove that this locking scheme cannot deadlock",
+          "Reason about the security implications of this trust boundary",
+          "Determine why the garbage collector pauses spike under allocation pressure",
+          "Reconstruct the sequence of events that corrupts the checkpoint file"
+        ],
+        "keywords": [
+          "diagnose", "diagnosis", "race", "leak", "deadlock", "flaky", "flaking",
+          "intermittent", "investigate", "derive", "prove", "trace", "heisenbug",
+          "corruption", "corrupt", "invariant", "nondeterministic", "hypothesis"
+        ]
+      }
+    ]
+  }
+}

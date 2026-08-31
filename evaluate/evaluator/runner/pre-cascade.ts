@@ -4,33 +4,33 @@
  * Evaluates the gatekeeper in isolation: for each prompt, computes the
  * aggregated score and decides whether it would cascade to LLM.
  *
- * Prerequisite: datasets at evaluate/dataset/{name}/
- *   {name}.config.json          — gate config (classes, utterances, keywords)
- *   {name}.jsonl                — unsplit prompts
- *   {name}.val.jsonl            — validation split
- *   {name}.test.jsonl           — test split
+ * Prerequisite: flat datasets at evaluate/dataset/ as
+ *   {dataset}-fnl-company-opus.{val,test}.jsonl  (dataset: k8, cpython, vscode)
+ * with ground-truth labels in `adaptive_label` or `complexity_label`, plus the
+ * shared taxonomy gate configs request_type.config.json / complexity_tier.config.json.
  *
  * Usage:
- *   npx tsx evaluate/evaluator/runner/pre-cascade.ts --dataset k8,nextjs --split val,test
+ *   npx tsx evaluate/evaluator/runner/pre-cascade.ts \
+ *     --dataset k8,cpython --split val,test --label-field adaptive_label
  *
- *   --dataset           k8,nextjs,pythonc,vscode (comma-separated, required)
+ *   --dataset           k8,cpython,vscode (comma-separated, required)
+ *   --label-field       adaptive_label | complexity_label (default: adaptive_label)
  *   --split             val,test (comma-separated, omit for unsplit)
  *   --verbose           true | false
  *   --limit             max prompts per combo
  *   --margin            margin threshold (default: 0.3)
- *   --entropy-threshold entropy threshold (default: 1.3)
+ *   --entropy-threshold entropy threshold (default: 0.8, normalized 0–1)
  *   --kw-weight         keyword weight in aggregation (default: 0.3)
  *   --sem-weight        semantic weight in aggregation (default: 0.7)
  *   --embedding-url     embedding API base URL
  *   --embedding-model   embedding model name (default: nomic-embed-text)
  *
- * Output: runs/{dataset}/pre-cascade/m{margin}_H{entropy}_kw{kw}_sem{sem}.{split}.jsonl
+ * Output: runs/{dataset}/{gate}/pre-cascade/m{margin}_H{entropy}_kw{kw}_sem{sem}.{split}.jsonl
  *   { id, truth, predicted, correct, margin, entropy, cascade, scores, latencyMs }
  */
 import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
-import { createEmbedClient } from "../../../src/lib/embed-client.js";
 
 import {
   initDbAndSeed,
@@ -38,8 +38,10 @@ import {
   loadDataset,
   buildGate,
   formatProbs,
+  makeEmbedClient,
   printPerClassSummary,
   parseBaseArgs,
+  resolveLabelField,
   writeRun,
   type PreCascadePrompt,
 } from "./shared.js";
@@ -70,6 +72,7 @@ interface PreEvalResult {
 
 async function main() {
   const raw = parseBaseArgs();
+  const labelField = resolveLabelField(raw);
 
   if (!raw.dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -93,10 +96,10 @@ async function main() {
   const embeddingModel = raw["embedding-model"] ?? DEFAULT_EMBEDDING_MODEL;
 
   // Seed all datasets
-  const embedClient = createEmbedClient({ baseUrl: embeddingUrl, model: embeddingModel });
+  const embedClient = makeEmbedClient(embeddingUrl, embeddingModel);
   let tenantId = "";
   for (const ds of datasets) {
-    const config = loadConfig(ds);
+    const config = loadConfig(ds, labelField);
     const ctx = await initDbAndSeed(config, {
       indexEmbeddings: true,
       embeddingUrl,
@@ -133,11 +136,11 @@ async function main() {
   const allResults: PreEvalResult[] = [];
 
   for (const ds of datasets) {
-    const config = loadConfig(ds);
+    const config = loadConfig(ds, labelField);
     const gate = buildGate(config);
 
     for (const split of splits) {
-      const rows = loadDataset(ds, split);
+      const rows = loadDataset(ds, split, labelField);
 
       console.log(
         `\nGate: ${gate.name}  |  pre-cascade (no LLM)  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
@@ -175,7 +178,7 @@ async function main() {
       const paramTag = `m${margin}_H${entropyThreshold}_kw${kwWeight}_sem${semWeight}`;
       const splitSuffix = split ? `.${split}` : "";
       writeRun(
-        `${ds}/pre-cascade/${paramTag}${splitSuffix}.jsonl`,
+        `${ds}/${gate.name}/pre-cascade/${paramTag}${splitSuffix}.jsonl`,
         comboResults.map((r): PreCascadePrompt => ({
           id: r.id,
           truth: r.truth,
