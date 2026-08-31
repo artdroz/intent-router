@@ -40,7 +40,7 @@
  *   { id, label, source, prompt }
  */
 
-import type { LlmClient } from "../../src/lib/llm-client.js";
+import type { LlmClient } from "../../../src/lib/llm-client.js";
 import {
   createValidatorClient,
   DEFAULT_VALIDATOR_MODEL,

@@ -4,7 +4,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { createLlmClient, type LlmClient } from "../../src/lib/llm-client.js";
+import { createLlmClient, type LlmClient } from "../../../src/lib/llm-client.js";
 
 export const DEFAULT_VALIDATOR_URL = "http://localhost:11434/v1";
 export const DEFAULT_VALIDATOR_MODEL = "qwen2.5:7b";

@@ -31,7 +31,7 @@
  */
 
 import { join } from "node:path";
-import type { LlmClient } from "../../src/lib/llm-client.js";
+import type { LlmClient } from "../../../src/lib/llm-client.js";
 import {
   createValidatorClient,
   parseArgv,
