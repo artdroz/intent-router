@@ -2,7 +2,7 @@ import { eq, and, sql, isNull, isNotNull, or } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDb } from "./db.js";
 import { embeddings as embeddingsTable } from "./schema.js";
-import type { EmbeddingRow, NewEmbedding } from "./schema.js";
+import type { EmbeddingRow, NewEmbedding, EmbeddingSource } from "./schema.js";
 
 export type { EmbeddingRow, NewEmbedding };
 
@@ -12,7 +12,7 @@ export type SearchResult = {
   gateName: string;
   label: string;
   content: string;
-  source: string;
+  source: EmbeddingSource;
   distance: number;
 };
 
@@ -51,7 +51,7 @@ export async function insertMany(rows: NewEmbeddingInput[]) {
  */
 export async function replaceClassEmbeddings(
   classId: number,
-  source: string,
+  source: EmbeddingSource,
   rows: NewEmbeddingInput[],
 ) {
   const db = getDb();
@@ -100,26 +100,27 @@ export async function searchByGate(
 }
 
 /**
- * ANN search: find top-K nearest embeddings within a class.
+ * Delete all embeddings matching (tenantId, classId, contentHash, source).
+ * Used to clear the opposite-signed evidence when feedback sign flips, e.g. a
+ * stale negative guardrail when the user now confirms the intent.
  */
-export async function searchByClassId(
-  classId: number,
+export async function deleteBySource(
   tenantId: string,
-  embedding: number[],
-  topK: number,
-): Promise<SearchResult[]> {
+  classId: number,
+  content: string,
+  source: EmbeddingSource,
+) {
   const db = getDb();
-  const vectorStr = `[${embedding.join(",")}]`;
-
-  return db
-    .select({
-      ...SEARCH_COLUMNS,
-      distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
-    })
-    .from(embeddingsTable)
-    .where(and(eq(embeddingsTable.classId, classId), eq(embeddingsTable.tenantId, tenantId)))
-    .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
-    .limit(topK);
+  await db
+    .delete(embeddingsTable)
+    .where(
+      and(
+        eq(embeddingsTable.tenantId, tenantId),
+        eq(embeddingsTable.classId, classId),
+        eq(embeddingsTable.contentHash, hashContent(content)),
+        eq(embeddingsTable.source, source),
+      ),
+    );
 }
 
 export async function deleteById(id: number) {

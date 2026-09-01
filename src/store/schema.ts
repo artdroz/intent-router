@@ -26,6 +26,9 @@ const vector = customType<{ data: number[]; driverData: string }>({
   },
 });
 
+export const EMBEDDING_SOURCES = ["config", "pos_feedback", "neg_feedback"] as const;
+export type EmbeddingSource = (typeof EMBEDDING_SOURCES)[number];
+
 export type TenantRow = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
@@ -107,8 +110,9 @@ export const embeddings = pgTable(
   "embeddings",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    // "config" = per-class config embedding; "feedback" = tenant-specific learnt embedding
-    source: text("source").notNull().default("config"),
+    // "config" = per-class config embedding; "pos_feedback" = tenant-specific learnt
+    // embedding; "neg_feedback" = negative guardrail (explicit-veto evidence)
+    source: text("source").notNull().default("config").$type<EmbeddingSource>(),
     // NULL = config embeddings; non-NULL = tenant-specific learnt embeddings
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
     classId: integer("class_id")
@@ -128,9 +132,10 @@ export const embeddings = pgTable(
     uniqueIndex("uq_embedding_class_content")
       .on(t.classId, t.contentHash)
       .where(sql`${t.tenantId} IS NULL`),
-    // Tenant-specific learnt embeddings: dedupe by (tenantId, classId, contentHash).
+    // Tenant-specific learnt embeddings: dedupe by (tenantId, classId, contentHash, source),
+    // so a positive and a negative guardrail for the same utterance can coexist.
     uniqueIndex("uq_embedding_tenant_class_content")
-      .on(t.tenantId, t.classId, t.contentHash)
+      .on(t.tenantId, t.classId, t.contentHash, t.source)
       .where(sql`${t.tenantId} IS NOT NULL`),
   ],
 );

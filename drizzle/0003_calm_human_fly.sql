@@ -1,0 +1,2 @@
+DROP INDEX "uq_embedding_tenant_class_content";--> statement-breakpoint
+CREATE UNIQUE INDEX "uq_embedding_tenant_class_content" ON "embeddings" USING btree ("tenant_id","class_id","content_hash","source") WHERE "embeddings"."tenant_id" IS NOT NULL;

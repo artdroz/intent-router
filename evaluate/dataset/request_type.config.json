@@ -13,11 +13,18 @@
           "create a CLI subcommand for scaffolding a new project",
           "build a script that backfills missing records in the database",
           "introduce a plugin hook so extensions can register custom commands",
-          "implement retry with exponential backoff for the HTTP client"
+          "implement retry with exponential backoff for the HTTP client",
+          "refactor the component to use the shared utility module",
+          "improve performance by rewriting the hot path in the parser",
+          "modernize the code to use the newer API",
+          "proposal: use the faster implementation in this module",
+          "use the new helper function in this module",
+          "rewrite this part of the module more efficiently"
         ],
         "keywords": [
-          "add", "implement", "create", "write", "build", "generate", "scaffold", "support",
-          "feature", "function", "endpoint", "api", "cli", "plugin", "script", "new"
+          "add", "implement", "create", "write", "build", "generate", "scaffold",
+          "refactor", "rewrite", "optimize",
+          "function", "endpoint", "script", "cli", "plugin"
         ]
       },
       {
@@ -30,11 +37,16 @@
           "what does this regex in the parser actually match",
           "why does this query return duplicate rows",
           "fix the null pointer in this handler when the session expires",
-          "walk me through how authentication tokens are refreshed"
+          "walk me through how authentication tokens are refreshed",
+          "this bug report describes a crash when the process starts",
+          "the stack trace shows an unhandled exception inside the extension",
+          "the log reports an unhandled error with a stack trace"
         ],
         "keywords": [
           "explain", "understand", "review", "trace", "investigate", "debug", "fix",
-          "how", "why", "what", "existing", "behavior", "bug", "error", "stack", "walk"
+          "existing", "behavior", "bug", "error", "stack", "walk",
+          "crash", "segfault", "panic", "race", "deadlock", "leak",
+          "regression", "reproduce"
         ]
       },
       {
@@ -47,30 +59,40 @@
           "outline the migration strategy from polling to webhooks",
           "spec the public API contract for the v2 endpoint",
           "compare trade-offs between event sourcing and a transactional outbox",
-          "sketch the architecture for a multi-tenant deployment topology"
+          "sketch the architecture for a multi-tenant deployment topology",
+          "propose adding a new field to the API object",
+          "request a new capability in the controller with clear semantics",
+          "outline the expected behavior and scope of a proposed feature",
+          "proposed API for extensions to query editor state",
+          "decompose the component into smaller reusable parts",
+          "move the shared logic into a common module"
         ],
         "keywords": [
-          "design", "architecture", "architect", "rfc", "proposal", "contract", "schema",
-          "migrate", "migration", "strategy", "structure", "system", "trade-off", "trade-offs",
-          "spec", "interface", "database", "topology"
+          "design", "architecture", "architect", "rfc", "proposal", "propose",
+          "contract", "schema", "migrate", "migration", "strategy", "structure",
+          "system", "trade-off", "trade-offs", "spec", "interface", "database",
+          "topology", "semantics", "api"
         ]
       },
       {
         "label": "analytical_reasoning",
         "description": "Solve, compute, prove, or reason through math, logic, complex debugging, edge-case analysis, or any problem requiring multi-step technical reasoning.",
         "utterances": [
-          "diagnose why the service deadlocks under high concurrency",
-          "track down the race condition between the two background workers",
-          "figure out why this loop intermittently skips the last element",
-          "root-cause the memory leak that appears only after several hours",
-          "reason about the edge cases in this date parsing function",
-          "prove that this concurrency control scheme cannot deadlock",
-          "compute the worst-case time complexity of this recursive function"
+          "compute the worst-case time complexity of this recursive function",
+          "solve this recurrence relation and give a closed form",
+          "prove that this algorithm is correct for all inputs",
+          "reason about whether this algorithm terminates for all inputs",
+          "derive the closed form of this summation",
+          "calculate the expected number of steps this loop takes",
+          "determine whether the two schemes are equivalent",
+          "figure out the mathematical invariant that holds across iterations",
+          "compute the result of this arithmetic expression",
+          "prove or disprove this mathematical statement"
         ],
         "keywords": [
-          "solve", "compute", "prove", "reason", "logic", "math", "diagnose",
-          "race", "deadlock", "leak", "crash", "panic", "overflow", "edge",
-          "root-cause", "corrupt", "timeout", "regression"
+          "solve", "compute", "prove", "reason", "logic", "math", "derive",
+          "complexity", "algorithm", "proof", "invariant",
+          "recurrence", "terminate", "equation", "theorem"
         ]
       },
       {
@@ -83,12 +105,15 @@
           "document the release process in the contributor handbook",
           "rewrite the API reference examples to match the current schema",
           "draft an announcement email for the upcoming release",
-          "add a troubleshooting section to the setup page"
+          "add a troubleshooting section to the setup page",
+          "fix a typo in the documentation",
+          "improve the wording of this error message"
         ],
         "keywords": [
-          "document", "docs", "documentation", "readme", "guide", "reference", "translate",
-          "draft", "edit", "rewrite", "prose", "email", "essay", "manual", "overview",
-          "troubleshooting", "changelog", "instructions"
+          "document", "docs", "documentation", "readme", "guide", "reference",
+          "translate", "draft", "edit", "rewrite", "prose", "email", "essay",
+          "manual", "troubleshooting", "changelog", "instructions",
+          "typo", "wording", "grammar", "spelling"
         ]
       },
       {
@@ -97,15 +122,19 @@
         "utterances": [
           "is this configuration option supported in the latest release",
           "which minimum runtime version does this package require",
-          "list the available endpoints exposed by the service",
           "what is the definition of this setting",
           "is this library compatible with the newer platform version",
           "clarify when this change takes effect",
-          "where is this option documented"
+          "where is this option documented",
+          "how do I register a tool in the extension",
+          "is it possible to create a terminal in this context",
+          "list the available configuration options",
+          "which platforms are supported"
         ],
         "keywords": [
           "clarify", "clarification", "supported", "compatible", "compatibility",
-          "definition", "define", "lookup", "list", "question", "consult", "fact"
+          "definition", "define", "lookup", "list", "question", "consult", "fact",
+          "possible"
         ]
       },
       {
@@ -118,13 +147,21 @@
           "bump the dependency to the latest patch release",
           "refresh the CODEOWNERS file with the new team",
           "announce the upcoming maintenance window to the team",
-          "reorder the checklist items in the issue template"
+          "reorder the checklist items in the issue template",
+          "track the rollout status of this feature across environments",
+          "improve the onboarding flow for first-run users",
+          "finalize the existing API for wider adoption",
+          "deprecate the existing API surface",
+          "upgrade the bundled dependency to the latest version",
+          "decide on the release process for this component"
         ],
         "keywords": [
-          "ci", "cd", "workflow", "pipeline", "lint", "linter", "config", "configuration",
-          "codeowners", "bot", "label", "housekeeping", "chore", "template", "maintenance",
-          "cleanup", "bump", "upgrade", "pin", "dependency", "dependencies", "deps",
-          "announce", "announcement", "admin", "administrative"
+          "ci", "cd", "workflow", "pipeline", "lint", "linter", "config",
+          "configuration", "codeowners", "bot", "label", "housekeeping", "chore",
+          "template", "maintenance", "cleanup", "bump", "upgrade", "pin",
+          "dependency", "dependencies", "deps", "announce", "announcement",
+          "admin", "administrative", "rollout", "onboarding", "ux", "ui",
+          "deprecate", "finalize", "checklist", "decide", "release"
         ]
       }
     ]

@@ -12,7 +12,7 @@ import { LlmClassifier } from "./classifiers/llm.js";
 import { CascadingRouter } from "./router/cascading.js";
 import type { RouteResult } from "./router/types.js";
 import type { RouteRequest, FeedbackInput } from "./schema.js";
-import type { RoutingEventRow } from "../store/schema.js";
+import type { EmbeddingSource, RoutingEventRow } from "../store/schema.js";
 import { LRN_SCORE_THRESHOLD, LRN_MAX_PER_CLASS } from "./config.js";
 import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
 
@@ -104,44 +104,46 @@ export async function submitFeedback(input: FeedbackInput, tenantId: string): Pr
 }
 
 /**
- * Best-effort embedding learning from feedback: store positive prompts as
- * tenant learnt embeddings, and delete the nearest non-config embedding on
- * negative feedback. Failure is non-fatal — feedback is already persisted.
+ * Best-effort embedding learning from feedback:
+ * - positive → store the prompt as a tenant learnt embedding
+ *   (`source: "pos_feedback"`).
+ * - negative → store it as a negative guardrail (`source: "neg_feedback"`)
+ *   tagged with the wrongly-predicted intent. At runtime a matching guardrail
+ *   vetoes that intent (see SemanticClassifier).
+ *
+ * Each write also removes the opposite-signed embedding for the same utterance
+ * so contradictory evidence can't coexist (e.g. a stale guardrail that would
+ * keep vetoing an intent the user has now confirmed). Failure is non-fatal —
+ * feedback is already persisted.
  */
 async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInput): Promise<void> {
   try {
     const embedding = await getEmbedClient().embed(event.prompt);
     const predictedClass = await gateStore.getClassById(event.predictedClassId);
+    if (!predictedClass) return;
 
-    // Store positives
-    if (input.positive) {
-      if (predictedClass) {
-        await embeddingsStore.insertMany([
-          {
-            tenantId: event.tenantId,
-            classId: event.predictedClassId,
-            gateName: predictedClass.gateName,
-            label: predictedClass.label,
-            content: event.prompt,
-            source: "feedback",
-            embedding,
-          },
-        ]);
-      }
-      return;
-    }
+    const source: EmbeddingSource = input.positive ? "pos_feedback" : "neg_feedback";
+    const opposite: EmbeddingSource = input.positive ? "neg_feedback" : "pos_feedback";
 
-    // NN-delete the nearest non-config embedding
-    const nearest = await embeddingsStore.searchByClassId(
-      event.predictedClassId,
+    // Sign flip: clear the opposite-signed evidence for this utterance first.
+    await embeddingsStore.deleteBySource(
       event.tenantId,
-      embedding,
-      20,
+      event.predictedClassId,
+      event.prompt,
+      opposite,
     );
-    const toDelete = nearest.find((r) => r.source !== "config");
-    if (toDelete) {
-      await embeddingsStore.deleteById(toDelete.id);
-    }
+
+    await embeddingsStore.insertMany([
+      {
+        tenantId: event.tenantId,
+        classId: event.predictedClassId,
+        gateName: predictedClass.gateName,
+        label: predictedClass.label,
+        content: event.prompt,
+        source,
+        embedding,
+      },
+    ]);
   } catch (err) {
     // Feedback already persisted; embedding learning is best-effort
     console.warn("Embedding feedback failed:", err);
