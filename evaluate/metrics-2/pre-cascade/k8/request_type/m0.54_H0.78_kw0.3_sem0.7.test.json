@@ -1,0 +1,57 @@
+{
+  "dataset": "k8",
+  "params": {
+    "margin": 0.54,
+    "entropy": 0.78,
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.5238,
+  "cascadeRate": 0.7333,
+  "silentErrorRate": 0.0905,
+  "cascadePrecision": 0.526,
+  "regretCost": 0.7857,
+  "regretCascadeRate": 0.3476,
+  "marginP50": 0.3678,
+  "marginP90": 0.695,
+  "entropyP50": 0.7112,
+  "entropyP90": 0.8553,
+  "perClass": {
+    "technical_design": {
+      "total": 44,
+      "correct": 19,
+      "accuracy": 0.4318
+    },
+    "analytical_reasoning": {
+      "total": 10,
+      "correct": 1,
+      "accuracy": 0.1
+    },
+    "general": {
+      "total": 28,
+      "correct": 9,
+      "accuracy": 0.3214
+    },
+    "factual_lookup": {
+      "total": 7,
+      "correct": 2,
+      "accuracy": 0.2857
+    },
+    "code_generation": {
+      "total": 21,
+      "correct": 4,
+      "accuracy": 0.1905
+    },
+    "code_understanding": {
+      "total": 92,
+      "correct": 67,
+      "accuracy": 0.7283
+    },
+    "writing": {
+      "total": 8,
+      "correct": 8,
+      "accuracy": 1
+    }
+  }
+}

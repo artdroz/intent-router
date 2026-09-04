@@ -1,0 +1,57 @@
+{
+  "dataset": "cpython",
+  "params": {
+    "margin": 0.54,
+    "entropy": 0.78,
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.6571,
+  "cascadeRate": 0.4857,
+  "silentErrorRate": 0.1,
+  "cascadePrecision": 0.5,
+  "regretCost": 0.5857,
+  "regretCascadeRate": 0.2429,
+  "marginP50": 0.5732,
+  "marginP90": 0.8445,
+  "entropyP50": 0.5948,
+  "entropyP90": 0.8071,
+  "perClass": {
+    "code_understanding": {
+      "total": 109,
+      "correct": 89,
+      "accuracy": 0.8165
+    },
+    "general": {
+      "total": 26,
+      "correct": 8,
+      "accuracy": 0.3077
+    },
+    "code_generation": {
+      "total": 35,
+      "correct": 15,
+      "accuracy": 0.4286
+    },
+    "writing": {
+      "total": 29,
+      "correct": 26,
+      "accuracy": 0.8966
+    },
+    "analytical_reasoning": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "technical_design": {
+      "total": 7,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "factual_lookup": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

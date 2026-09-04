@@ -5,6 +5,8 @@ export type RouteResult = {
   score: number;
   stage: "pre-cascade" | "llm" | "historical";
   scores: Record<string, number>;
+  /** Confidence of the winning path; `>= 1` means no cascade was needed. */
+  confScore: number;
 };
 
 export interface Router {

@@ -36,7 +36,7 @@ import {
   ensureDir,
   gateNameFor,
 } from "./runner/shared.js";
-import { RUNS_DIR, METRICS_DIR, DEFAULT_W_ERROR, DEFAULT_W_DOUBT } from "./config.js";
+import { RUNS_DIR, METRICS_DIR, DEFAULT_W_ERROR, DEFAULT_W_CAS } from "./config.js";
 
 // ── Types ──
 
@@ -49,6 +49,11 @@ interface ClassifierMetrics {
   ece: number;
   avgConfidenceCorrect: number;
   avgConfidenceIncorrect: number;
+  silentErrorRate: number;
+  regretCascadeRate: number;
+  cascadePrecision: number;
+  cascadeRate: number;
+  cost: number;
   avgLatencyMs: number;
   perClass: Record<string, { total: number; correct: number; accuracy: number }>;
 }
@@ -61,8 +66,12 @@ interface PreCascadeMetrics {
   cascadeRate: number;
   silentErrorRate: number;
   cascadePrecision: number;
-  regretCost: number;
+  cost: number;
   regretCascadeRate: number;
+  kwAvgConfidenceCorrect: number;
+  kwAvgConfidenceIncorrect: number;
+  semAvgConfidenceCorrect: number;
+  semAvgConfidenceIncorrect: number;
   marginP50: number;
   marginP90: number;
   entropyP50: number;
@@ -90,7 +99,7 @@ interface ThreeTierMetrics {
   cascadeRate: number;
   silentErrorRate: number;
   cascadePrecision: number;
-  regretCost: number;
+  cost: number;
   regretCascadeRate: number;
   keywordRate: number;
   semanticRate: number;
@@ -205,19 +214,30 @@ function handleClassifier(dataset: string, split: string | undefined, gateName: 
     // ECE: bin predictions by confidence, compare avg confidence vs accuracy per bin
     const ece = computeECE(prompts);
 
-    // Avg confidence for correct vs incorrect
+    // Avg classifier confidence (confScore) for correct vs incorrect.
     const correctPrompts = prompts.filter((p) => p.correct);
     const incorrectPrompts = prompts.filter((p) => !p.correct);
     const avgConfCorrect =
       correctPrompts.length > 0
-        ? correctPrompts.reduce((s, p) => s + top1(p), 0) /
+        ? correctPrompts.reduce((s, p) => s + p.confScore, 0) /
           correctPrompts.length
         : 0;
     const avgConfIncorrect =
       incorrectPrompts.length > 0
-        ? incorrectPrompts.reduce((s, p) => s + top1(p), 0) /
+        ? incorrectPrompts.reduce((s, p) => s + p.confScore, 0) /
           incorrectPrompts.length
         : 0;
+
+    // Treat the classifier's own `isConfident` as a mini-gate.
+    const cascadeCount = prompts.filter((p) => !p.isConfident).length;
+    const cascadeRate = cascadeCount / prompts.length;
+    const silentErrors = prompts.filter((p) => !p.correct && p.isConfident).length;
+    const silentErrorRate = silentErrors / prompts.length;
+    const correctButCascade = prompts.filter((p) => p.correct && !p.isConfident).length;
+    const regretCascadeRate = correctButCascade / prompts.length;
+    const wrongCascaded = prompts.filter((p) => !p.correct && !p.isConfident).length;
+    const cascadePrecision = cascadeCount > 0 ? wrongCascaded / cascadeCount : 0;
+    const cost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_CAS * regretCascadeRate;
 
     // Avg latency
     const avgLatencyMs = Math.round(
@@ -243,6 +263,11 @@ function handleClassifier(dataset: string, split: string | undefined, gateName: 
       ece: round(ece),
       avgConfidenceCorrect: round(avgConfCorrect),
       avgConfidenceIncorrect: round(avgConfIncorrect),
+      silentErrorRate: round(silentErrorRate),
+      regretCascadeRate: round(regretCascadeRate),
+      cascadePrecision: round(cascadePrecision),
+      cascadeRate: round(cascadeRate),
+      cost: round(cost),
       avgLatencyMs,
       perClass,
     };
@@ -293,8 +318,14 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
     ).length;
     const regretCascadeRate = correctButCascade / prompts.length;
 
-    // Regret cost
-    const regretCost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_DOUBT * regretCascadeRate;
+    // Routing cost: penalise silent errors and regret cascades (wasted LLM).
+    const cost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_CAS * regretCascadeRate;
+
+    // Per-classifier confidence separation (confScore of correct vs incorrect).
+    const kwAvgConfCorrect = meanConfidence(prompts, true, "kw");
+    const kwAvgConfIncorrect = meanConfidence(prompts, false, "kw");
+    const semAvgConfCorrect = meanConfidence(prompts, true, "sem");
+    const semAvgConfIncorrect = meanConfidence(prompts, false, "sem");
 
     // Margin/entropy distribution
     const margins = prompts.map((p) => p.margin).sort((a, b) => a - b);
@@ -323,8 +354,12 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
       cascadeRate: round(cascadeRate),
       silentErrorRate: round(silentErrorRate),
       cascadePrecision: round(cascadePrecision),
-      regretCost: round(regretCost),
+      cost: round(cost),
       regretCascadeRate: round(regretCascadeRate),
+      kwAvgConfidenceCorrect: round(kwAvgConfCorrect),
+      kwAvgConfidenceIncorrect: round(kwAvgConfIncorrect),
+      semAvgConfidenceCorrect: round(semAvgConfCorrect),
+      semAvgConfidenceIncorrect: round(semAvgConfIncorrect),
       marginP50: round(margins[Math.floor(margins.length * 0.5)] ?? 0),
       marginP90: round(margins[Math.floor(margins.length * 0.9)] ?? 0),
       entropyP50: round(entropies[Math.floor(entropies.length * 0.5)] ?? 0),
@@ -339,7 +374,7 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
   // Write combined compare.json with best params
   if (allMetrics.length > 1) {
     const best = allMetrics.reduce((a, b) =>
-      a.regretCost < b.regretCost ? a : b,
+      a.cost < b.cost ? a : b,
     );
     const compare = {
       dataset,
@@ -350,11 +385,11 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
         cascadeRate: m.cascadeRate,
         silentErrorRate: m.silentErrorRate,
         cascadePrecision: m.cascadePrecision,
-        regretCost: m.regretCost,
+        cost: m.cost,
       })),
       best: {
         params: best.params,
-        regretCost: best.regretCost,
+        cost: best.cost,
         silentErrorRate: best.silentErrorRate,
         cascadeRate: best.cascadeRate,
       },
@@ -406,7 +441,7 @@ function handleThreeTier(dataset: string, split: string | undefined, gateName: s
     const correctButCascade = prompts.filter((p) => p.correct && p.cascade).length;
     const regretCascadeRate = correctButCascade / total;
 
-    const regretCost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_DOUBT * regretCascadeRate;
+    const cost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_CAS * regretCascadeRate;
 
     // Tier distribution + per-tier accuracy.
     const keywordRows = prompts.filter((p) => p.stage === "keyword");
@@ -444,7 +479,7 @@ function handleThreeTier(dataset: string, split: string | undefined, gateName: s
       cascadeRate: round(cascadeRate),
       silentErrorRate: round(silentErrorRate),
       cascadePrecision: round(cascadePrecision),
-      regretCost: round(regretCost),
+      cost: round(cost),
       regretCascadeRate: round(regretCascadeRate),
       keywordRate: round(keywordRate),
       semanticRate: round(semanticRate),
@@ -464,7 +499,7 @@ function handleThreeTier(dataset: string, split: string | undefined, gateName: s
   // Write combined compare.json with best params
   if (allMetrics.length > 1) {
     const best = allMetrics.reduce((a, b) =>
-      a.regretCost < b.regretCost ? a : b,
+      a.cost < b.cost ? a : b,
     );
     const compare = {
       dataset,
@@ -476,13 +511,13 @@ function handleThreeTier(dataset: string, split: string | undefined, gateName: s
         silentErrorRate: m.silentErrorRate,
         cascadePrecision: m.cascadePrecision,
         regretCascadeRate: m.regretCascadeRate,
-        regretCost: m.regretCost,
+        cost: m.cost,
         keywordRate: m.keywordRate,
         semanticRate: m.semanticRate,
       })),
       best: {
         params: best.params,
-        regretCost: best.regretCost,
+        cost: best.cost,
         silentErrorRate: best.silentErrorRate,
         cascadeRate: best.cascadeRate,
       },
@@ -635,6 +670,17 @@ function round(n: number): number {
 /** Derive the top-1 confidence score from a prompt's scores map. */
 function top1(p: { scores: Record<string, number> }): number {
   return Math.max(0, ...Object.values(p.scores));
+}
+
+/** Average confScore of correct/incorrect prompts for one pre-cascade classifier. */
+function meanConfidence(
+  prompts: PreCascadePrompt[],
+  correct: boolean,
+  key: "kw" | "sem",
+): number {
+  const rows = prompts.filter((p) => p.correct === correct);
+  if (rows.length === 0) return 0;
+  return rows.reduce((s, p) => s + p[key].confScore, 0) / rows.length;
 }
 
 // ── Entry ──

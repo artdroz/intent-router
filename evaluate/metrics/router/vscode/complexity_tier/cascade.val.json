@@ -4,9 +4,9 @@
   "overallAccuracy": 0.6143,
   "llmConditionalAccuracy": 0.5741,
   "cascadeRate": 0.7714,
-  "avgLatencyMs": 4248,
-  "avgPreLatencyMs": 374,
-  "avgLlmLatencyMs": 5022,
+  "avgLatencyMs": 8295,
+  "avgPreLatencyMs": 387,
+  "avgLlmLatencyMs": 10251,
   "perClass": {
     "medium": {
       "total": 20,

@@ -20,7 +20,14 @@ export class LlmClassifier implements Classifier {
     );
 
     const { scores, evidence } = parseResponse(answer, labels);
-    return { classifier: "llm", entries: buildResult(scores, evidence) };
+    return {
+      classifier: "llm",
+      entries: buildResult(scores, evidence),
+      // The LLM is the trusted fallback, never gated by the pre-cascade
+      // gatekeeper, so it reports full confidence.
+      confScore: 1,
+      isConfident: true,
+    };
   }
 }
 

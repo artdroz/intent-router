@@ -1,0 +1,38 @@
+{
+  "dataset": "cpython",
+  "classifier": "llm",
+  "promptCount": 70,
+  "accuracy": 0.7,
+  "macroAccuracy": 0.5276,
+  "ece": 0.3,
+  "avgConfidenceCorrect": 1,
+  "avgConfidenceIncorrect": 1,
+  "avgLatencyMs": 4830,
+  "perClass": {
+    "general": {
+      "total": 9,
+      "correct": 1,
+      "accuracy": 0.1111
+    },
+    "code_understanding": {
+      "total": 38,
+      "correct": 35,
+      "accuracy": 0.9211
+    },
+    "code_generation": {
+      "total": 11,
+      "correct": 3,
+      "accuracy": 0.2727
+    },
+    "technical_design": {
+      "total": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "writing": {
+      "total": 9,
+      "correct": 9,
+      "accuracy": 1
+    }
+  }
+}

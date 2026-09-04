@@ -1,0 +1,37 @@
+{
+  "dataset": "cpython",
+  "promptCount": 70,
+  "overallAccuracy": 0.7429,
+  "llmConditionalAccuracy": 0.5806,
+  "cascadeRate": 0.4429,
+  "avgLatencyMs": 4005,
+  "avgPreLatencyMs": 678,
+  "avgLlmLatencyMs": 7514,
+  "perClass": {
+    "general": {
+      "total": 9,
+      "correct": 2,
+      "accuracy": 0.2222
+    },
+    "code_understanding": {
+      "total": 38,
+      "correct": 33,
+      "accuracy": 0.8684
+    },
+    "code_generation": {
+      "total": 11,
+      "correct": 5,
+      "accuracy": 0.4545
+    },
+    "technical_design": {
+      "total": 3,
+      "correct": 3,
+      "accuracy": 1
+    },
+    "writing": {
+      "total": 9,
+      "correct": 9,
+      "accuracy": 1
+    }
+  }
+}

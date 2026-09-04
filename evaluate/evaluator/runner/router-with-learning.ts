@@ -14,7 +14,7 @@
  *     --dataset k8,cpython --split val,test --label-field adaptive_label
  *
  *   --dataset         k8,cpython,vscode (comma-separated, required)
- *   --label-field     adaptive_label | complexity_label (default: adaptive_label)
+ *   --label-field     adaptive_label, complexity_label (comma-separated, default: adaptive_label)
  *   --split           val,test (comma-separated, omit for unsplit)
  *   --verbose         true | false
  *   --limit           max prompts per combo
@@ -36,7 +36,7 @@ import { randomUUID } from "node:crypto";
 import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { LlmClassifier } from "../../../src/routing/classifiers/llm.js";
-import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
+import { CascadingRouter, resolvePrecascade } from "../../../src/routing/router/cascading.js";
 import { computeMargin, computeEntropy } from "../../../src/routing/utils.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
 import type { RouteResult } from "../../../src/routing/router/types.js";
@@ -59,7 +59,7 @@ import {
   makeLlmClient,
   printPerClassSummary,
   parseBaseArgs,
-  resolveLabelField,
+  resolveLabelFields,
   writeRun,
   shuffleDataset,
   type RouterPrompt,
@@ -99,7 +99,7 @@ interface EvalResult {
 
 async function main() {
   const raw = parseBaseArgs();
-  const labelField = resolveLabelField(raw);
+  const labelFields = resolveLabelFields(raw);
 
   if (!raw.dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -135,20 +135,8 @@ async function main() {
     throw new Error(`--shuffle-seed must be a finite number, got: ${raw["shuffle-seed"]}`);
   }
 
-  // Seed all datasets
+  // Build classifiers + cascade router once (label-agnostic)
   const embedClient = makeEmbedClient(embeddingUrl, embeddingModel);
-  let tenantId = "";
-  for (const ds of datasets) {
-    const config = loadConfig(ds, labelField);
-    const ctx = await initDbAndSeed(config, {
-      indexEmbeddings: true,
-      embeddingUrl,
-      embeddingModel,
-    });
-    tenantId = ctx.tenantId;
-  }
-
-  // Build classifiers + cascade router (shared across datasets)
   const keyword = new KeywordClassifier();
   const semantic = new SemanticClassifier(embedClient);
   const llmClient = makeLlmClient(llmUrl, llmModel);
@@ -194,116 +182,132 @@ async function main() {
     );
   }
 
-  // Evaluate each dataset × split combination
-  const allResults: EvalResult[] = [];
+  for (const labelField of labelFields) {
+    console.log(`\nLabel field: ${labelField}`);
 
-  for (const ds of datasets) {
-    const config = loadConfig(ds, labelField);
-    const gate = buildGate(config);
+    // Seed once per label taxonomy (all datasets share the same gate config).
+    const config = loadConfig(datasets[0], labelField);
+    const ctx = await initDbAndSeed(config, {
+      indexEmbeddings: true,
+      embeddingUrl,
+      embeddingModel,
+    });
+    const tenantId = ctx.tenantId;
 
-    for (const split of splits) {
-      if (continuousLearning) {
-        const rows = shuffleDataset(
-          split ? loadDataset(ds, split, labelField) : loadDataset(ds, undefined, labelField),
-          shuffleSeed,
-        );
-        const clResults = await runContinuousLearningLoop({
-          rows,
-          gate,
-          tenantId,
-          router,
-          llm,
-          margin,
-          entropy,
-          feedbackEvery,
-          promoteEvery,
-          feedbackMode,
-          trainSplitRatio,
-          verbose,
-          limit,
-        });
-        allResults.push(...clResults);
-        writeRun(
-          `${ds}/${gate.name}/router/cl.${split ?? "train-eval"}.jsonl`,
-          clResults.map(toRunRow),
-        );
-        continue;
-      }
+    // Evaluate each dataset × split combination
+    const allResults: EvalResult[] = [];
 
-      const rows = shuffleDataset(loadDataset(ds, split, labelField), shuffleSeed);
+    for (const ds of datasets) {
+      const config = loadConfig(ds, labelField);
+      const gate = buildGate(config);
 
-      console.log(
-        `\nGate: ${gate.name}  |  Router: cascade  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
-      );
-      console.log("─".repeat(80));
-
-      const comboResults: EvalResult[] = [];
-      for (const row of rows) {
-        if (limit && comboResults.length >= limit) break;
-
-        // Phase 1: pre-cascade (keyword + semantic)
-        const t0 = performance.now();
-        const pre = await router.runPrecascade(row.prompt, gate, tenantId);
-        const preLatencyMs = Math.round(performance.now() - t0);
-
-        const wouldCascade = shouldCascade(pre.sorted, pre.kwResult, pre.semResult, margin, entropy);
-
-        let predicted: string;
-        let llmLatencyMs = 0;
-
-        if (!wouldCascade) {
-          predicted = pre.result.label;
-        } else {
-          // Phase 2: LLM fallback
-          const t1 = performance.now();
-          const llmResult = await llm.classify(row.prompt, gate, tenantId);
-          llmLatencyMs = Math.round(performance.now() - t1);
-          predicted = pickTop(llmResult);
+      for (const split of splits) {
+        if (continuousLearning) {
+          const rows = shuffleDataset(
+            split ? loadDataset(ds, split, labelField) : loadDataset(ds, undefined, labelField),
+            shuffleSeed,
+          );
+          const clResults = await runContinuousLearningLoop({
+            rows,
+            gate,
+            tenantId,
+            router,
+            llm,
+            margin,
+            entropy,
+            kwWeight,
+            semWeight,
+            feedbackEvery,
+            promoteEvery,
+            feedbackMode,
+            trainSplitRatio,
+            verbose,
+            limit,
+          });
+          allResults.push(...clResults);
+          writeRun(
+            `${ds}/${gate.name}/router/cl.${split ?? "train-eval"}.jsonl`,
+            clResults.map(toRunRow),
+          );
+          continue;
         }
 
-        const totalLatencyMs = preLatencyMs + llmLatencyMs;
-        const correct = predicted === row.label;
+        const rows = shuffleDataset(loadDataset(ds, split, labelField), shuffleSeed);
 
-        comboResults.push({
-          id: row.id,
-          expected: row.label,
-          predicted,
-          correct,
-          cascaded: wouldCascade,
-          preLatencyMs,
-          llmLatencyMs,
-          totalLatencyMs,
-        });
+        console.log(
+          `\nGate: ${gate.name}  |  Router: cascade  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
+        );
+        console.log("─".repeat(80));
 
-        printResult(comboResults[comboResults.length - 1], verbose);
+        const comboResults: EvalResult[] = [];
+        for (const row of rows) {
+          if (limit && comboResults.length >= limit) break;
+
+          // Phase 1: pre-cascade (keyword + semantic)
+          const t0 = performance.now();
+          const pre = await router.runPrecascade(row.prompt, gate, tenantId);
+          const preLatencyMs = Math.round(performance.now() - t0);
+
+          const decision = resolvePrecascade(pre.kwResult, pre.semResult, gate, kwWeight, semWeight);
+          const wouldCascade = decision.cascade;
+
+          let predicted: string;
+          let llmLatencyMs = 0;
+
+          if (!wouldCascade) {
+            predicted = decision.label ?? pre.result.label;
+          } else {
+            // Phase 2: LLM fallback
+            const t1 = performance.now();
+            const llmResult = await llm.classify(row.prompt, gate, tenantId);
+            llmLatencyMs = Math.round(performance.now() - t1);
+            predicted = pickTop(llmResult);
+          }
+
+          const totalLatencyMs = preLatencyMs + llmLatencyMs;
+          const correct = predicted === row.label;
+
+          comboResults.push({
+            id: row.id,
+            expected: row.label,
+            predicted,
+            correct,
+            cascaded: wouldCascade,
+            preLatencyMs,
+            llmLatencyMs,
+            totalLatencyMs,
+          });
+
+          printResult(comboResults[comboResults.length - 1], verbose);
+        }
+
+        allResults.push(...comboResults);
+
+        // Write per-combo raw results
+        const outSuffix = split ? `.${split}` : "";
+        writeRun(
+          `${ds}/${gate.name}/router/cascade-with-learning${outSuffix}.jsonl`,
+          comboResults.map((r): RouterPrompt => ({
+            id: r.id,
+            truth: r.expected,
+            predicted: r.predicted,
+            correct: r.correct,
+            cascaded: r.cascaded,
+            preLatencyMs: r.preLatencyMs,
+            llmLatencyMs: r.llmLatencyMs,
+            totalLatencyMs: r.totalLatencyMs,
+          })),
+        );
       }
-
-      allResults.push(...comboResults);
-
-      // Write per-combo raw results
-      const outSuffix = split ? `.${split}` : "";
-      writeRun(
-        `${ds}/${gate.name}/router/cascade-with-learning${outSuffix}.jsonl`,
-        comboResults.map((r): RouterPrompt => ({
-          id: r.id,
-          truth: r.expected,
-          predicted: r.predicted,
-          correct: r.correct,
-          cascaded: r.cascaded,
-          preLatencyMs: r.preLatencyMs,
-          llmLatencyMs: r.llmLatencyMs,
-          totalLatencyMs: r.totalLatencyMs,
-        })),
-      );
     }
-  }
 
-  printSummary(
-    allResults,
-    continuousLearning
-      ? "Summary  |  cascade (train+eval)"
-      : "Summary  |  cascade",
-  );
+    printSummary(
+      allResults,
+      continuousLearning
+        ? "Summary  |  cascade (train+eval)"
+        : "Summary  |  cascade",
+    );
+  }
 }
 
 async function runContinuousLearningLoop(args: {
@@ -314,6 +318,8 @@ async function runContinuousLearningLoop(args: {
   llm: LlmClassifier;
   margin: number;
   entropy: number;
+  kwWeight: number;
+  semWeight: number;
   feedbackEvery: number;
   promoteEvery: number;
   feedbackMode: string;
@@ -329,6 +335,8 @@ async function runContinuousLearningLoop(args: {
     llm,
     margin,
     entropy,
+    kwWeight,
+    semWeight,
     feedbackEvery,
     promoteEvery,
     feedbackMode,
@@ -369,12 +377,19 @@ async function runContinuousLearningLoop(args: {
 
     const preMargin = computeMargin(pre.sorted);
     const preEntropy = computeEntropy(pre.sorted);
-    const wouldCascade = shouldCascade(pre.sorted, pre.kwResult, pre.semResult, margin, entropy);
+    const decision = resolvePrecascade(pre.kwResult, pre.semResult, domainGate, kwWeight, semWeight);
+    const wouldCascade = decision.cascade;
 
     let result: RouteResult;
     let llmLatencyMs = 0;
     if (!wouldCascade) {
-      result = pre.result;
+      result = {
+        label: decision.label ?? pre.result.label,
+        score: decision.score,
+        stage: "pre-cascade",
+        scores: decision.scores,
+        confScore: decision.confScore,
+      };
     } else {
       const t1 = performance.now();
       const llmResult = await llm.classify(prompt, domainGate, tenantId);
@@ -387,6 +402,7 @@ async function runContinuousLearningLoop(args: {
         scores: Object.fromEntries(
           [...llmResult.entries].map(([l, e]) => [l, e.prob]),
         ),
+        confScore: llmResult.confScore,
       };
     }
 
@@ -401,6 +417,7 @@ async function runContinuousLearningLoop(args: {
         predictedClassId: predictedClass.id,
         stage: result.stage,
         scores: result.scores,
+        confScore: result.confScore,
         channel: "mcp",
       });
     }

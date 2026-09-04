@@ -1,0 +1,1 @@
+ALTER TABLE "routing_events" ADD COLUMN "conf_score" real DEFAULT 1 NOT NULL;

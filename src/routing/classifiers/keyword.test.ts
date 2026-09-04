@@ -59,7 +59,7 @@ describe("tokenize", () => {
 });
 
 describe("KeywordClassifier", () => {
-  it("scores a class with matching keywords higher", async () => {
+  it("scores a class with hitting keywords higher", async () => {
     const gate = makeGate([
       makeClass({ label: "deploy", keywords: ["deploy", "rollout"] }),
       makeClass({ label: "debug", keywords: ["debug", "fix"] }),
@@ -71,7 +71,7 @@ describe("KeywordClassifier", () => {
     expect(result.entries.get("debug")!.prob).toBe(0);
   });
 
-  it("records matched keywords as evidence", async () => {
+  it("records hit keywords as evidence", async () => {
     const gate = makeGate([
       makeClass({ label: "deploy", keywords: ["deploy", "rollout"] }),
       makeClass({ label: "debug", keywords: ["debug"] }),
@@ -107,7 +107,7 @@ describe("KeywordClassifier", () => {
     expect(result.entries.get("debug")!.prob).toBe(1);
   });
 
-  it("weighs promoted keywords independently of config keywords", async () => {
+  it("gives promoted keyword hits a score bonus", async () => {
     const deploy = makeClass({ label: "deploy", keywords: [] });
     const debug = makeClass({ label: "debug", keywords: [] });
 

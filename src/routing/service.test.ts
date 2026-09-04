@@ -28,6 +28,7 @@ function routeEvent(overrides: Partial<RoutingEventRow> = {}): RoutingEventRow {
     predictedClassId: 42,
     stage: "pre-cascade",
     scores: {},
+    confScore: 1,
     channel: "rest",
     createdAt: new Date(),
     ...overrides,

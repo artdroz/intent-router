@@ -80,6 +80,7 @@ export async function route(
       predictedClassId: predictedClass.id,
       stage: result.stage,
       scores: result.scores,
+      confScore: result.confScore,
       channel,
     });
   }

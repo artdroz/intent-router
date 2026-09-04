@@ -10,6 +10,10 @@ export interface Classifier {
 export type ClassificationResult = {
   classifier: ClassifierMode;
   entries: Map<string, ClassificationEntry>;
+  /** Single scalar confidence; `>= 1` means the classifier is confident. */
+  confScore: number;
+  /** Deferral vote derived from `confScore >= 1`. */
+  isConfident: boolean;
 };
 
 export type ClassificationEntry = {

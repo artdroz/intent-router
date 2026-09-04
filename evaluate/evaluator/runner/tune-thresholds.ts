@@ -18,7 +18,7 @@
  *   --w-error       weight for silent errors (default: 1.0)
  *   --w-doubt       weight for regret cascades (default: 2.0)
  *   --dataset       k8,cpython,vscode (comma-separated, required)
- *   --label-field   adaptive_label | complexity_label (default: adaptive_label)
+ *   --label-field   adaptive_label, complexity_label (comma-separated, default: adaptive_label)
  *   --file          only sweep files whose name (before .val.jsonl) starts with
  *                   this string (e.g. m0.3_H0.9_kw0.3_sem0.7)
  *   --margin-min    sweep start (default: 0)
@@ -42,7 +42,7 @@ import {
   DEFAULT_SWEEP_STEP,
   DEFAULT_SWEEP_TOP,
 } from "../config.js";
-import { gateNameFor } from "./shared.js";
+import { gateNameFor, resolveLabelFields } from "./shared.js";
 
 // ── Types ──
 
@@ -205,28 +205,22 @@ function roundStep(value: number, step: number): number {
 
 // ── Main ──
 
-function main() {
-  const raw = parseArgs();
-  const wError = raw["w-error"] ? parseFloat(raw["w-error"]) : DEFAULT_W_ERROR;
-  const wDoubt = raw["w-doubt"] ? parseFloat(raw["w-doubt"]) : DEFAULT_W_DOUBT;
-  const step = raw.step ? parseFloat(raw.step) : DEFAULT_SWEEP_STEP;
-  const topN = raw.top ? parseInt(raw.top, 10) : DEFAULT_SWEEP_TOP;
-  const datasetFilter = raw.dataset
-    ? raw.dataset.split(",").map((s) => s.trim()).filter(Boolean)
-    : undefined;
+interface SweepArgs {
+  gateName: string;
+  datasetFilter: string[];
+  fileFilter?: string;
+  wError: number;
+  wDoubt: number;
+  step: number;
+  topN: number;
+  marginMin: number;
+  marginMax: number;
+  entropyMin: number;
+  entropyMax: number;
+}
 
-  if (!datasetFilter || datasetFilter.length === 0) {
-    console.error("Error: --dataset is required (comma-separated for multiple)");
-    process.exit(1);
-  }
-
-  const gateName = gateNameFor(raw["label-field"] || "adaptive_label");
-  const fileFilter = raw.file ? raw.file.trim() : undefined;
-
-  const marginMin = raw["margin-min"] ? parseFloat(raw["margin-min"]) : DEFAULT_SWEEP_MARGIN_MIN;
-  const marginMax = raw["margin-max"] ? parseFloat(raw["margin-max"]) : DEFAULT_SWEEP_MARGIN_MAX;
-  const entropyMin = raw["entropy-min"] ? parseFloat(raw["entropy-min"]) : DEFAULT_SWEEP_ENTROPY_MIN;
-  const entropyMax = raw["entropy-max"] ? parseFloat(raw["entropy-max"]) : DEFAULT_SWEEP_ENTROPY_MAX;
+function sweepGate(args: SweepArgs) {
+  const { gateName, datasetFilter, fileFilter, wError, wDoubt, step, topN, marginMin, marginMax, entropyMin, entropyMax } = args;
 
   const runs = findValRuns(datasetFilter, gateName, fileFilter);
   if (runs.length === 0) {
@@ -286,6 +280,49 @@ function main() {
   console.log(`\nTo explore trade-offs, try: --w-error 2.0 --w-doubt 1.0  (penalise errors more)`);
   console.log(`                       : --w-error 1.0 --w-doubt 2.0  (penalise cascades more)`);
   console.log(`                       : --step 0.02  (finer granularity)`);
+}
+
+function main() {
+  const raw = parseArgs();
+  const wError = raw["w-error"] ? parseFloat(raw["w-error"]) : DEFAULT_W_ERROR;
+  const wDoubt = raw["w-doubt"] ? parseFloat(raw["w-doubt"]) : DEFAULT_W_DOUBT;
+  const step = raw.step ? parseFloat(raw.step) : DEFAULT_SWEEP_STEP;
+  const topN = raw.top ? parseInt(raw.top, 10) : DEFAULT_SWEEP_TOP;
+  const datasetFilter = raw.dataset
+    ? raw.dataset.split(",").map((s) => s.trim()).filter(Boolean)
+    : undefined;
+
+  if (!datasetFilter || datasetFilter.length === 0) {
+    console.error("Error: --dataset is required (comma-separated for multiple)");
+    process.exit(1);
+  }
+
+  const fileFilter = raw.file ? raw.file.trim() : undefined;
+
+  const marginMin = raw["margin-min"] ? parseFloat(raw["margin-min"]) : DEFAULT_SWEEP_MARGIN_MIN;
+  const marginMax = raw["margin-max"] ? parseFloat(raw["margin-max"]) : DEFAULT_SWEEP_MARGIN_MAX;
+  const entropyMin = raw["entropy-min"] ? parseFloat(raw["entropy-min"]) : DEFAULT_SWEEP_ENTROPY_MIN;
+  const entropyMax = raw["entropy-max"] ? parseFloat(raw["entropy-max"]) : DEFAULT_SWEEP_ENTROPY_MAX;
+
+  const labelFields = resolveLabelFields(raw);
+
+  for (const labelField of labelFields) {
+    const gateName = gateNameFor(labelField);
+    console.log(`\nLabel field: ${labelField}  |  Gate: ${gateName}`);
+    sweepGate({
+      gateName,
+      datasetFilter,
+      fileFilter,
+      wError,
+      wDoubt,
+      step,
+      topN,
+      marginMin,
+      marginMax,
+      entropyMin,
+      entropyMax,
+    });
+  }
 }
 
 main();

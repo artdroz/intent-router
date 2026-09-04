@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   scoreClass,
   entriesToScores,
-  shouldCascade,
+  resolvePrecascade,
   aggregatePrecascade,
   CascadingRouter,
   hasConfiguredKeywords,
@@ -12,6 +12,17 @@ import type { ClassificationEntry, ClassificationResult } from "../classifiers/t
 import type { Gate } from "../../gates/types.js";
 
 const entry = (prob: number, evidence: string[] = []): ClassificationEntry => ({ prob, evidence });
+
+const result = (
+  classifier: ClassificationResult["classifier"],
+  entries: Map<string, ClassificationEntry>,
+  conf: Partial<Pick<ClassificationResult, "confScore" | "isConfident">> = {},
+): ClassificationResult => ({
+  classifier,
+  entries,
+  confScore: conf.confScore ?? 0,
+  isConfident: conf.isConfident ?? false,
+});
 
 describe("scoreClass", () => {
   it("combines keyword and semantic scores with a linear blend", () => {
@@ -64,47 +75,78 @@ describe("entriesToScores", () => {
   });
 });
 
-describe("shouldCascade", () => {
-  const kw = (label: string, prob: number): ClassificationResult => ({
-    classifier: "keyword",
-    entries: new Map([[label, entry(prob)]]),
-  });
-  const sem = (label: string, prob: number): ClassificationResult => ({
-    classifier: "semantic",
-    entries: new Map([[label, entry(prob)]]),
-  });
-
-  it("cascades when the margin is below the threshold", () => {
-    const sorted: [string, ClassificationEntry][] = [
-      ["a", entry(0.5)],
-      ["b", entry(0.5)],
-    ];
-    expect(shouldCascade(sorted, kw("a", 0.5), sem("a", 0.5), 0.6, 1.2)).toBe(true);
-  });
-
-  it("cascades when entropy is above the threshold", () => {
-    const sorted: [string, ClassificationEntry][] = [
-      ["a", entry(0.5)],
-      ["b", entry(0.3)],
-      ["c", entry(0.2)],
-    ];
-    expect(shouldCascade(sorted, kw("a", 0.5), sem("a", 0.5), 0.15, 0.8)).toBe(true);
+describe("resolvePrecascade", () => {
+  const makeGate = (labels: string[]): Gate => ({
+    id: 1,
+    tenantId: "tenant-1",
+    name: "test",
+    description: null,
+    config: { learningEnabled: true },
+    classes: labels.map((label, i) => ({
+      id: i + 1,
+      label,
+      utterances: ["x"],
+      keywords: [],
+    })),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   });
 
-  it("does not cascade for a confident distribution with conflicting classifiers", () => {
-    const sorted: [string, ClassificationEntry][] = [
-      ["a", entry(0.9)],
-      ["b", entry(0.1)],
-    ];
-    expect(shouldCascade(sorted, kw("a", 0.9), sem("b", 0.9), 0.15, 1.2)).toBe(false);
+  const kw = (label: string, prob: number, conf?: Partial<Pick<ClassificationResult, "confScore" | "isConfident">>) =>
+    result("keyword", new Map([[label, entry(prob)]]), conf);
+  const sem = (label: string, prob: number, conf?: Partial<Pick<ClassificationResult, "confScore" | "isConfident">>) =>
+    result("semantic", new Map([[label, entry(prob)]]), conf);
+
+  it("cascades when neither classifier is confident", () => {
+    const decision = resolvePrecascade(kw("a", 0.9), sem("a", 0.9), makeGate(["a", "b"]), 0.3, 0.7);
+    expect(decision.cascade).toBe(true);
   });
 
-  it("cascades for a confident distribution with agreeing classifiers", () => {
-    const sorted: [string, ClassificationEntry][] = [
-      ["a", entry(0.9)],
-      ["b", entry(0.1)],
-    ];
-    expect(shouldCascade(sorted, kw("a", 0.9), sem("a", 0.9), 0.15, 1.2)).toBe(true);
+  it("uses the keyword label when only keyword is confident", () => {
+    const decision = resolvePrecascade(
+      kw("a", 0.9, { isConfident: true, confScore: 2 }),
+      sem("b", 0.9, { isConfident: false, confScore: 0 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(false);
+    expect(decision.label).toBe("a");
+  });
+
+  it("uses the semantic label when only semantic is confident", () => {
+    const decision = resolvePrecascade(
+      kw("a", 0.9, { isConfident: false, confScore: 0 }),
+      sem("b", 0.9, { isConfident: true, confScore: 2 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(false);
+    expect(decision.label).toBe("b");
+  });
+
+  it("does not cascade when both agree and are confident", () => {
+    const decision = resolvePrecascade(
+      kw("a", 0.9, { isConfident: true, confScore: 2 }),
+      sem("a", 0.9, { isConfident: true, confScore: 1.5 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(false);
+    expect(decision.label).toBe("a");
+  });
+
+  it("cascades on confident disagreement", () => {
+    const decision = resolvePrecascade(
+      kw("a", 0.9, { isConfident: true, confScore: 2 }),
+      sem("b", 0.9, { isConfident: true, confScore: 2 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(true);
   });
 });
 
@@ -128,7 +170,12 @@ describe("aggregate", () => {
   }
 
   function result(entries: Map<string, ClassificationEntry>): ClassificationResult {
-    return { classifier: "keyword", entries };
+    return {
+      classifier: "keyword",
+      entries,
+      confScore: 0,
+      isConfident: false,
+    };
   }
 
   it("aggregates across all gate classes, including classes with no scores", () => {
@@ -209,45 +256,27 @@ describe("CascadingRouter safety nets", () => {
     };
   }
 
-  const kwResult: ClassificationResult = {
-    classifier: "keyword",
-    entries: new Map([
-      ["a", entry(1.0)],
-      ["b", entry(0.0)],
-    ]),
-  };
-  const semResult: ClassificationResult = {
-    classifier: "semantic",
-    entries: new Map([
-      ["a", entry(0.2)],
-      ["b", entry(0.8)],
-    ]),
-  };
-  const llmResult: ClassificationResult = {
-    classifier: "llm",
-    entries: new Map([
-      ["a", entry(0.5)],
-      ["b", entry(0.5)],
-    ]),
-  };
-  const llmOkResult: ClassificationResult = {
-    classifier: "llm",
-    entries: new Map([
-      ["a", entry(0.9)],
-      ["b", entry(0.1)],
-    ]),
-  };
-  const nullLlmResult: ClassificationResult = {
-    classifier: "llm",
-    entries: new Map(),
-  };
-  const ambiguousKwResult: ClassificationResult = {
-    classifier: "keyword",
-    entries: new Map([
-      ["a", entry(0.5)],
-      ["b", entry(0.5)],
-    ]),
-  };
+  const kwResult: ClassificationResult = result("keyword", new Map([
+    ["a", entry(1.0)],
+    ["b", entry(0.0)],
+  ]), { isConfident: true, confScore: 1 });
+  const semResult: ClassificationResult = result("semantic", new Map([
+    ["a", entry(0.2)],
+    ["b", entry(0.8)],
+  ]), { isConfident: true, confScore: 1 });
+  const llmResult: ClassificationResult = result("llm", new Map([
+    ["a", entry(0.5)],
+    ["b", entry(0.5)],
+  ]), { isConfident: true, confScore: 1 });
+  const llmOkResult: ClassificationResult = result("llm", new Map([
+    ["a", entry(0.9)],
+    ["b", entry(0.1)],
+  ]), { isConfident: true, confScore: 1 });
+  const nullLlmResult: ClassificationResult = result("llm", new Map(), { isConfident: false, confScore: 0 });
+  const ambiguousKwResult: ClassificationResult = result("keyword", new Map([
+    ["a", entry(0.5)],
+    ["b", entry(0.5)],
+  ]), { isConfident: false, confScore: 0 });
 
   it("uses semantic only when no keywords are configured", async () => {
     const keywordSpy = vi.fn<() => Promise<ClassificationResult>>().mockResolvedValue(kwResult);

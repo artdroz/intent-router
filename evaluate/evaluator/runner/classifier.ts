@@ -17,7 +17,7 @@
  *
  *   --classifier       keyword | semantic | llm | all (required)
  *   --dataset          k8,cpython,vscode (comma-separated, required)
- *   --label-field      adaptive_label | complexity_label (default: adaptive_label)
+ *   --label-field      adaptive_label, complexity_label (comma-separated, default: adaptive_label)
  *   --split            val,test (comma-separated, omit for unsplit dataset)
  *   --verbose          true | false
  *   --limit            max prompts per combo
@@ -44,7 +44,7 @@ import {
   makeLlmClient,
   printPerClassSummary,
   parseBaseArgs,
-  resolveLabelField,
+  resolveLabelFields,
   writeRun,
   type ClassifierPrompt,
 } from "./shared.js";
@@ -64,6 +64,8 @@ interface EvalResult {
   correct: boolean;
   scores: Record<string, number>;
   evidence: Record<string, string[]>;
+  confScore: number;
+  isConfident: boolean;
   durationMs: number;
 }
 
@@ -71,7 +73,7 @@ interface EvalResult {
 
 async function main() {
   const raw = parseBaseArgs();
-  const labelField = resolveLabelField(raw);
+  const labelFields = resolveLabelFields(raw);
 
   if (!raw.classifier) {
     console.error("Error: --classifier is required (keyword | semantic | llm | all)");
@@ -98,86 +100,93 @@ async function main() {
   const llmUrl = raw["llm-url"] ?? DEFAULT_LLM_URL;
   const llmModel = raw["llm-model"] ?? DEFAULT_LLM_MODEL;
 
-  // Seed all datasets (always index embeddings — needed by semantic)
-  let embedFn: ((text: string) => Promise<number[]>) | undefined;
-  let tenantId = "";
-  for (const ds of datasets) {
-    const config = loadConfig(ds, labelField);
+  let lastRunPath = "";
+
+  for (const labelField of labelFields) {
+    console.log(`\nLabel field: ${labelField}`);
+
+    // Seed once per label taxonomy — all datasets share the same gate config
+    // for this taxonomy, so a single seed indexes the shared gate + embeddings.
+    // Always index embeddings — needed by semantic.
+    const config = loadConfig(datasets[0], labelField);
     const ctx = await initDbAndSeed(config, {
       indexEmbeddings: true,
       embeddingUrl,
       embeddingModel,
     });
-    tenantId = ctx.tenantId;
-    if (ctx.embed) embedFn = ctx.embed;
-  }
+    const tenantId = ctx.tenantId;
+    const embedFn = ctx.embed;
 
-  // Evaluate each classifier × dataset × split combination
-  const allResults: EvalResult[] = [];
-  let lastRunPath = "";
+    // Evaluate each classifier × dataset × split combination
+    const allResults: EvalResult[] = [];
 
-  for (const classifierName of classifiers) {
-    const classifier = buildClassifier(
-      classifierName,
-      { embeddingUrl, embeddingModel, llmUrl, llmModel },
-      embedFn!,
-    );
-
-    for (const ds of datasets) {
-      const config = loadConfig(ds, labelField);
-      const gate = buildGate(config);
-
-      for (const split of splits) {
-        const rows = loadDataset(ds, split, labelField);
-
-        console.log(
-          `\nGate: ${gate.name}  |  Classifier: ${classifierName}  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
-        );
-        console.log("─".repeat(80));
-
-      const comboResults: EvalResult[] = [];
-      for (const row of rows) {
-        if (limit && comboResults.length >= limit) break;
-
-        const t0 = performance.now();
-        const cr = await classifier.classify(row.prompt, gate, tenantId);
-        const durationMs = Math.round(performance.now() - t0);
-        const predicted = topLabel(cr);
-        const correct = predicted === row.label;
-
-        comboResults.push({
-          id: row.id,
-          expected: row.label,
-          predicted,
-          correct,
-          scores: entriesToObj(cr.entries),
-          evidence: evidenceToObj(cr.entries),
-          durationMs,
-        });
-
-        printResult(comboResults[comboResults.length - 1], verbose);
-      }
-
-      allResults.push(...comboResults);
-
-      // Write per-combo raw results
-      const outSuffix = split ? `.${split}` : "";
-      lastRunPath = writeRun(
-        `${ds}/${gate.name}/classifier/${classifierName}${outSuffix}.jsonl`,
-        comboResults.map((r): ClassifierPrompt => ({
-          id: r.id,
-          truth: r.expected,
-          predicted: r.predicted,
-          correct: r.correct,
-          scores: r.scores,
-          latencyMs: r.durationMs,
-        })),
+    for (const classifierName of classifiers) {
+      const classifier = buildClassifier(
+        classifierName,
+        { embeddingUrl, embeddingModel, llmUrl, llmModel },
+        embedFn!,
       );
-    }
-  }
-  } // end classifier loop
 
-  printSummary(allResults, classifiers.length === 1 ? classifiers[0] : "all", lastRunPath);
+      for (const ds of datasets) {
+        const config = loadConfig(ds, labelField);
+        const gate = buildGate(config);
+
+        for (const split of splits) {
+          const rows = loadDataset(ds, split, labelField);
+
+          console.log(
+            `\nGate: ${gate.name}  |  Classifier: ${classifierName}  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
+          );
+          console.log("─".repeat(80));
+
+          const comboResults: EvalResult[] = [];
+          for (const row of rows) {
+            if (limit && comboResults.length >= limit) break;
+
+            const t0 = performance.now();
+            const cr = await classifier.classify(row.prompt, gate, tenantId);
+            const durationMs = Math.round(performance.now() - t0);
+            const predicted = topLabel(cr);
+            const correct = predicted === row.label;
+
+            comboResults.push({
+              id: row.id,
+              expected: row.label,
+              predicted,
+              correct,
+              scores: entriesToObj(cr.entries),
+              evidence: evidenceToObj(cr.entries),
+              confScore: cr.confScore,
+              isConfident: cr.isConfident,
+              durationMs,
+            });
+
+            printResult(comboResults[comboResults.length - 1], verbose);
+          }
+
+          allResults.push(...comboResults);
+
+          // Write per-combo raw results
+          const outSuffix = split ? `.${split}` : "";
+          lastRunPath = writeRun(
+            `${ds}/${gate.name}/classifier/${classifierName}${outSuffix}.jsonl`,
+            comboResults.map((r): ClassifierPrompt => ({
+              id: r.id,
+              truth: r.expected,
+              predicted: r.predicted,
+              correct: r.correct,
+              scores: r.scores,
+              confScore: r.confScore,
+              isConfident: r.isConfident,
+              latencyMs: r.durationMs,
+            })),
+          );
+        }
+      }
+    }
+
+    printSummary(allResults, classifiers.length === 1 ? classifiers[0] : "all", lastRunPath);
+  }
 }
 
 // ── Classifier Construction ──
