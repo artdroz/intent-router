@@ -1,0 +1,33 @@
+{
+  "dataset": "k8",
+  "classifier": "semantic",
+  "promptCount": 210,
+  "accuracy": 0.5667,
+  "macroAccuracy": 0.4006,
+  "ece": 0.0955,
+  "avgConfidenceCorrect": 0.6347,
+  "avgConfidenceIncorrect": 0.5204,
+  "avgLatencyMs": 505,
+  "perClass": {
+    "reasoning": {
+      "total": 109,
+      "correct": 95,
+      "accuracy": 0.8716
+    },
+    "medium": {
+      "total": 48,
+      "correct": 4,
+      "accuracy": 0.0833
+    },
+    "simple": {
+      "total": 38,
+      "correct": 17,
+      "accuracy": 0.4474
+    },
+    "complex": {
+      "total": 15,
+      "correct": 3,
+      "accuracy": 0.2
+    }
+  }
+}

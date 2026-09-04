@@ -10,9 +10,8 @@ data
 *.db
 evaluate
 
-# Deployment & DB bootstrap files (not needed in the app image)
+# Deployment & DB bootstrap files
 k8s
-config/init-db.sql
 
 # OS noise
 .DS_Store

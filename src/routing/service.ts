@@ -13,7 +13,12 @@ import { CascadingRouter } from "./router/cascading.js";
 import type { RouteResult } from "./router/types.js";
 import type { RouteRequest, FeedbackInput } from "./schema.js";
 import type { EmbeddingSource, RoutingEventRow } from "../store/schema.js";
-import { LRN_SCORE_THRESHOLD, LRN_MAX_PER_CLASS } from "./config.js";
+import {
+  LRN_SCORE_THRESHOLD,
+  LRN_MAX_PER_CLASS,
+  LRN_MIN_FEEDBACK_ROWS,
+  LRN_NEG_MARGIN,
+} from "./config.js";
 import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
 
 // TOD0: handle large prompts gracefuly when embedding
@@ -118,9 +123,21 @@ export async function submitFeedback(input: FeedbackInput, tenantId: string): Pr
  */
 async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInput): Promise<void> {
   try {
+    // A route whose tenant or class was deleted (FK set NULL) cannot be
+    // attributed for learning — skip embedding feedback for it.
+    if (event.tenantId === null || event.predictedClassId === null) return;
+
     const embedding = await getEmbedClient().embed(event.prompt);
     const predictedClass = await gateStore.getClassById(event.predictedClassId);
     if (!predictedClass) return;
+
+    // Only learn from confident errors: a wrong answer on a flat distribution is
+    // noise, not a "this intent is confusing" signal. Skip guardrails whose
+    // top-2 margin is too small (or unknown), so ambiguous errors can't veto intents.
+    if (!input.positive) {
+      const margin = topTwoMargin(event.scores);
+      if (margin === null || margin < LRN_NEG_MARGIN) return;
+    }
 
     const source: EmbeddingSource = input.positive ? "pos_feedback" : "neg_feedback";
     const opposite: EmbeddingSource = input.positive ? "neg_feedback" : "pos_feedback";
@@ -150,6 +167,14 @@ async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInp
   }
 }
 
+/** Top-2 probability margin of a route's score distribution (null when unavailable). */
+function topTwoMargin(scores: unknown): number | null {
+  const values = Object.values((scores ?? {}) as Record<string, number>);
+  if (values.length < 2) return null;
+  const sorted = [...values].sort((a, b) => b - a);
+  return sorted[0] - sorted[1];
+}
+
 /**
  * Cron: recalculate promotedKeywords for all classes using TF-IDF scoring.
  *
@@ -166,6 +191,8 @@ export async function promoteKeyword(
 
   for (const { tenantId, gateId } of scopes) {
     const corpus = await routingStore.getFeedbackCorpusByTenantGate(tenantId, gateId);
+    if (corpus.length < LRN_MIN_FEEDBACK_ROWS) continue; // not enough signal yet
+
     const byClass = groupCorpusByClass(corpus);
     const classIds = [...byClass.keys()];
     if (classIds.length < 2) continue; // TF-IDF needs ≥2 classes

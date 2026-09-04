@@ -5,10 +5,9 @@ import type {
   ClassificationResult,
   ClassificationEntry,
 } from "../classifiers/types.js";
-import { buildResult, computeMargin, computeEntropy, pickBestLabel } from "../utils.js";
+import { buildResult, computeRelativeMargin, computeEntropy, pickBestLabel } from "../utils.js";
 import {
   CAS_ENTROPY_THRESHOLD,
-  CAS_KEYWORD_GATE_BOOST,
   CAS_KW_WEIGHT,
   CAS_MARGIN_THRESHOLD,
   CAS_SEM_WEIGHT,
@@ -46,11 +45,12 @@ export class CascadingRouter implements Router {
 
     const {
       result: preCascadeResult,
-      margin,
-      entropy,
+      kwResult: kwResults,
+      semResult: semResults,
+      sorted: aggregatedResults,
     } = await this.runPrecascade(prompt, gate, tenantId);
 
-    if (!shouldCascade(margin, entropy, this.marginThreshold, this.entropyThreshold)) {
+    if (!shouldCascade(aggregatedResults, kwResults, semResults, this.marginThreshold, this.entropyThreshold)) {
       return preCascadeResult;
     }
 
@@ -62,31 +62,30 @@ export class CascadingRouter implements Router {
     prompt: string,
     gate: Gate,
     tenantId: string,
-  ): Promise<{ result: RouteResult; margin: number; entropy: number }> {
+  ): Promise<{ result: RouteResult; kwResult: ClassificationResult; semResult: ClassificationResult; sorted: [string, ClassificationEntry][]; }> {
     const useKeyword = hasConfiguredKeywords(gate);
     const useSemantic = hasConfiguredUtterances(gate);
     let aggregated: Map<string, ClassificationEntry>;
+    let kwResult: ClassificationResult = { classifier: "keyword", entries: new Map() };
+    let semResult: ClassificationResult = { classifier: "semantic", entries: new Map() };
 
     // Run only the classifiers that have configured signal, so a missing
     // keyword/utterance config can never produce a bogus all-zero distribution.
     if (useKeyword && useSemantic) {
-      const [kwResult, semResult] = await Promise.all([
+      [kwResult, semResult] = await Promise.all([
         this.keyword.classify(prompt, gate, tenantId),
         this.semantic.classify(prompt, gate, tenantId),
       ]);
       aggregated = aggregatePrecascade(kwResult, semResult, gate, this.kwWeight, this.semWeight);
     } else if (useKeyword) {
-      const kwResult = await this.keyword.classify(prompt, gate, tenantId);
+      kwResult = await this.keyword.classify(prompt, gate, tenantId);
       aggregated = ensureAllClasses(kwResult.entries, gate);
     } else {
-      const semResult = await this.semantic.classify(prompt, gate, tenantId);
+      semResult = await this.semantic.classify(prompt, gate, tenantId);
       aggregated = ensureAllClasses(semResult.entries, gate);
     }
 
     const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
-
-    const margin = computeMargin(sorted);
-    const entropy = computeEntropy(aggregated);
 
     const result: RouteResult = {
       label: sorted[0][0],
@@ -95,7 +94,7 @@ export class CascadingRouter implements Router {
       scores: entriesToScores(aggregated),
     };
 
-    return { result, margin, entropy };
+    return { result, kwResult, semResult, sorted };
   }
 
   private async runLlmFallback(
@@ -149,12 +148,34 @@ export class CascadingRouter implements Router {
 
 /** Decide whether pre-cascade confidence is too low and should fall back to LLM. */
 export function shouldCascade(
-  margin: number,
-  entropy: number,
+  aggregatedResults: [string, ClassificationEntry][],
+  kwResults: ClassificationResult,
+  semResults: ClassificationResult,
   marginThreshold: number,
   entropyThreshold: number,
 ): boolean {
-  return margin < marginThreshold || entropy > entropyThreshold;
+
+  // Margin gates the gap between the #1 and #2 classes
+  // Shannon entropy gates how spread the probability is overÂ allÂ classes
+  const margin = computeRelativeMargin(aggregatedResults);
+  const entropy = computeEntropy(aggregatedResults);
+  if (margin < marginThreshold || entropy > entropyThreshold) return true;
+
+
+  // Confident disagreement: each classifier individually sure, but about
+  // different classes â†’ contradictory evidence â†’ cascade regardless of the blend.
+  const sortedKwResults = [...kwResults.entries].sort((a, b) => b[1].prob - a[1].prob);
+  const sortedSemResults = [...semResults.entries].sort((a, b) => b[1].prob - a[1].prob);
+  const kwMargin = computeRelativeMargin(sortedKwResults);
+  const semMargin = computeRelativeMargin(sortedSemResults);
+  const kwTop = sortedKwResults[0]?.[0] ?? null;
+  const semTop = sortedSemResults[0]?.[0] ?? null;
+  const kwConfident = kwTop !== null && kwMargin >= marginThreshold;
+  const semConfident = semTop !== null && semMargin >= marginThreshold;
+
+  if (kwConfident && semConfident && kwTop !== semTop) return true;
+
+  return false;
 }
 
 /** True when at least one class has config keywords for the keyword classifier. */
@@ -201,7 +222,7 @@ export function aggregatePrecascade(
   return buildResult(scores, evidence);
 }
 
-/** Calculate weighted per-class score with keyword-gating boost (before normalization). */
+/** Calculate weighted per-class score (linear keyword + semantic blend, before normalization). */
 export function scoreClass(
   kwEntry: ClassificationEntry | undefined,
   semEntry: ClassificationEntry | undefined,
@@ -211,12 +232,9 @@ export function scoreClass(
   const kwScore = kwEntry?.prob ?? 0;
   const semScore = semEntry?.prob ?? 0;
 
-  // When keyword classifier has any matches, multiplies the entire combined score
-  // by a multiplier scaled by keyword strength instead of just presence.
-  // This multiplier also amplifies the semantic signal, which increase overall confidence.
-  const gateMultiplier = 1 + (CAS_KEYWORD_GATE_BOOST - 1) * kwScore;
-
-  const weighted = (kwScore * kwWeight + semScore * semWeight) * gateMultiplier;
+  // Linear blend only â€” no keyword gate boost.lready weights
+  // config (1.2) vs promoted (1.0) keywords internally.
+  const weighted = kwScore * kwWeight + semScore * semWeight;
   return {
     prob: weighted,
     evidence: [...(kwEntry?.evidence ?? []), ...(semEntry?.evidence ?? [])],

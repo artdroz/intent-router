@@ -1,0 +1,33 @@
+{
+  "dataset": "cpython",
+  "classifier": "semantic",
+  "promptCount": 210,
+  "accuracy": 0.5,
+  "macroAccuracy": 0.4451,
+  "ece": 0.1561,
+  "avgConfidenceCorrect": 0.6524,
+  "avgConfidenceIncorrect": 0.6079,
+  "avgLatencyMs": 520,
+  "perClass": {
+    "reasoning": {
+      "total": 69,
+      "correct": 45,
+      "accuracy": 0.6522
+    },
+    "medium": {
+      "total": 56,
+      "correct": 8,
+      "accuracy": 0.1429
+    },
+    "simple": {
+      "total": 68,
+      "correct": 47,
+      "accuracy": 0.6912
+    },
+    "complex": {
+      "total": 17,
+      "correct": 5,
+      "accuracy": 0.2941
+    }
+  }
+}

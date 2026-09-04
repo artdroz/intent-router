@@ -51,30 +51,30 @@ describe("computeMargin", () => {
 
 describe("computeEntropy", () => {
   it("is 0 for a fully peaked distribution", () => {
-    const entries = new Map([
+    const entries: [string, ClassificationEntry][] = [
       ["a", entry(1.0)],
       ["b", entry(0.0)],
-    ]);
+    ];
     expect(computeEntropy(entries)).toBeCloseTo(0);
   });
 
   it("is higher for a uniform distribution than a peaked one", () => {
-    const uniform = new Map([
+    const uniform: [string, ClassificationEntry][] = [
       ["a", entry(0.5)],
       ["b", entry(0.5)],
-    ]);
-    const peaked = new Map([
+    ];
+    const peaked: [string, ClassificationEntry][] = [
       ["a", entry(0.9)],
       ["b", entry(0.1)],
-    ]);
+    ];
     expect(computeEntropy(uniform)).toBeGreaterThan(computeEntropy(peaked));
   });
 
   it("ignores zero-probability classes", () => {
-    const entries = new Map([
+    const entries: [string, ClassificationEntry][] = [
       ["a", entry(1.0)],
       ["b", entry(0.0)],
-    ]);
+    ];
     expect(computeEntropy(entries)).toBeCloseTo(0);
   });
 });

@@ -1,0 +1,38 @@
+{
+  "dataset": "vscode",
+  "classifier": "llm",
+  "promptCount": 70,
+  "accuracy": 0.6,
+  "macroAccuracy": 0.7176,
+  "ece": 0.4,
+  "avgConfidenceCorrect": 1,
+  "avgConfidenceIncorrect": 1,
+  "avgLatencyMs": 4480,
+  "perClass": {
+    "code_generation": {
+      "total": 4,
+      "correct": 3,
+      "accuracy": 0.75
+    },
+    "technical_design": {
+      "total": 13,
+      "correct": 13,
+      "accuracy": 1
+    },
+    "general": {
+      "total": 29,
+      "correct": 4,
+      "accuracy": 0.1379
+    },
+    "code_understanding": {
+      "total": 20,
+      "correct": 19,
+      "accuracy": 0.95
+    },
+    "factual_lookup": {
+      "total": 4,
+      "correct": 3,
+      "accuracy": 0.75
+    }
+  }
+}

@@ -29,6 +29,7 @@ import {
   REQUEST_INTERVAL_MS,
   RETRY_DELAY_MS,
 } from "../config.js";
+import { main as cleanupDb } from "../eval-cleanup.js";
 
 // ── Dataset Types ──
 
@@ -163,6 +164,30 @@ export function loadDataset(
       }
       return { id: String(obj.id), label, prompt: obj.prompt };
     });
+}
+
+/** Return a deterministically shuffled copy without mutating the input rows. */
+export function shuffleDataset<T>(rows: T[], seed: number): T[] {
+  if (!Number.isFinite(seed)) {
+    throw new Error(`Shuffle seed must be a finite number, got: ${seed}`);
+  }
+
+  const shuffled = rows.slice();
+  let state = Math.trunc(seed) >>> 0;
+
+  const nextRandom = () => {
+    state = (state + 0x6d2b79f5) | 0;
+    let value = Math.imul(state ^ (state >>> 15), 1 | state);
+    value ^= value + Math.imul(value ^ (value >>> 7), 61 | value);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(nextRandom() * (index + 1));
+    [shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]];
+  }
+
+  return shuffled;
 }
 
 // ── Client Construction ──
@@ -303,6 +328,7 @@ export async function initDbAndSeed(
   initDb(databaseUrl);
 
   // Seed labels: create (or reuse) the gate with its classes.
+  await cleanupDb();
   const apiKey = await ensureEvalApiKey();
   const gate = await getOrCreateGate(apiKey.tenantId, config);
   if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
@@ -455,6 +481,37 @@ export interface RouterPrompt {
   preLatencyMs: number;
   llmLatencyMs: number;
   totalLatencyMs: number;
+}
+
+/** Per-prompt result of the sequential three-tier (keyword → semantic → LLM) cascade. */
+export interface ThreeTierPrompt {
+  id: string;
+  truth: string;
+  predicted: string;
+  correct: boolean;
+  /** True when the gatekeeper would defer to the LLM (both tiers uncertain). */
+  cascade: boolean;
+  /** Final tier that produced `predicted`: keyword | semantic | cascade. */
+  stage: "keyword" | "semantic" | "cascade";
+  /** Final pre-cascade confidence (of the winning tier). */
+  margin: number;
+  entropy: number;
+  /** Per-tier confidence (always recorded, for offline threshold re-sweeping). */
+  kwMargin: number;
+  kwEntropy: number;
+  semMargin: number;
+  semEntropy: number;
+  /** Final pre-cascade scores. */
+  scores: Record<string, number>;
+  /** Raw per-tier classifier distributions. */
+  kwScores: Record<string, number>;
+  semScores: Record<string, number>;
+  /** Per-tier evidence (for future llm-as-judge). */
+  kwEvidence: Record<string, string[]>;
+  semEvidence: Record<string, string[]>;
+  latencyMs: number;
+  kwLatencyMs: number;
+  semLatencyMs: number;
 }
 
 // ── Run I/O ──

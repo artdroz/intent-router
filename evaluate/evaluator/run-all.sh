@@ -48,8 +48,9 @@ fi
 DATASETS="${DATASETS:-k8,cpython,vscode}"
 SPLITS="${SPLITS:-val,test}"
 LABEL_FIELD="${LABEL_FIELD:-adaptive_label,complexity_label}"
-MARGIN="${MARGIN:-0.3}"
-ENTROPY="${ENTROPY:-0.8}"
+# Cascade defaults mirror src/routing/config.ts (CAS_MARGIN_THRESHOLD / CAS_ENTROPY_THRESHOLD).
+MARGIN="${MARGIN:-0.54}"
+ENTROPY="${ENTROPY:-0.78}"
 KW_WEIGHT="${KW_WEIGHT:-0.3}"
 SEM_WEIGHT="${SEM_WEIGHT:-0.7}"
 EMBED_URL="${EMBED_URL:-${EMBED_BASE_URL:-http://localhost:11434}}"

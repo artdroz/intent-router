@@ -25,13 +25,19 @@ export function computeMargin(sorted: [string, ClassificationEntry][]): number {
   return top2 ? top1[1].prob - top2[1].prob : 1.0;
 }
 
+export function computeRelativeMargin(sorted: [string, ClassificationEntry][]): number {
+  const top1 = sorted[0];
+  const top2 = sorted[1];
+  return top2 ? (top1[1].prob - top2[1].prob) / top1[1].prob : 1.0;
+}
+
 /** Shannon entropy of the probability distribution, normalized to [0, 1]. */
-export function computeEntropy(entries: Map<string, ClassificationEntry>): number {
+export function computeEntropy(sorted: [string, ClassificationEntry][]): number {
   let entropy = 0;
-  for (const [, entry] of entries) {
+  for (const [, entry] of sorted) {
     if (entry.prob > 0) entropy -= entry.prob * Math.log(entry.prob);
   }
-  const k = entries.size;
+  const k = sorted.length;
   if (k <= 1) return 0;
   const maxEntropy = Math.log(k);
   return maxEntropy > 0 ? entropy / maxEntropy : 0;

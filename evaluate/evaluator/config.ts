@@ -51,14 +51,12 @@ export const DEFAULT_LLM_URL = LLM_BASE_URL;
 export const DEFAULT_LLM_MODEL = LLM_MODEL;
 
 // ── Cascade / Pre-cascade defaults ──
-
-export const DEFAULT_MARGIN_THRESHOLD = 0.3;
-export const DEFAULT_ENTROPY_THRESHOLD = 0.8;
+export const DEFAULT_MARGIN_THRESHOLD = 0.54;
+export const DEFAULT_ENTROPY_THRESHOLD = 0.78;
 export const DEFAULT_KW_WEIGHT = 0.3;
 export const DEFAULT_SEM_WEIGHT = 0.7;
 
 // ── Threshold tuning defaults ──
-
 export const DEFAULT_W_ERROR = 1.0;
 export const DEFAULT_W_DOUBT = 2.0;
 export const DEFAULT_SWEEP_MARGIN_MIN = 0;
@@ -67,3 +65,6 @@ export const DEFAULT_SWEEP_ENTROPY_MIN = 0;
 export const DEFAULT_SWEEP_ENTROPY_MAX = 1.0;
 export const DEFAULT_SWEEP_STEP = 0.05;
 export const DEFAULT_SWEEP_TOP = 15;
+
+/** Fixed default for reproducible time-series dataset shuffling. */
+export const DEFAULT_SHUFFLE_SEED = 20260901;

@@ -76,7 +76,9 @@ describe("submitFeedback (embedding learning)", () => {
   });
 
   it("negative feedback stores a neg_feedback guardrail and clears the positive embedding", async () => {
-    getRouteByRouteId.mockResolvedValue(routeEvent());
+    getRouteByRouteId.mockResolvedValue(
+      routeEvent({ scores: { deploy: 0.9, other: 0.1 } }),
+    );
     getClassById.mockResolvedValue(predictedClass);
 
     await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
@@ -95,6 +97,16 @@ describe("submitFeedback (embedding learning)", () => {
         content: "deploy the app",
       }),
     ]);
+  });
+
+  it("skips negative feedback learning when the error is not confident", async () => {
+    getRouteByRouteId.mockResolvedValue(routeEvent()); // scores: {} → unknown margin
+    getClassById.mockResolvedValue(predictedClass);
+
+    await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
+
+    expect(deleteBySource).not.toHaveBeenCalled();
+    expect(insertMany).not.toHaveBeenCalled();
   });
 
   it("persists feedback even when embedding fails", async () => {

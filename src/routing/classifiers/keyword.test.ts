@@ -40,8 +40,8 @@ beforeEach(() => {
 });
 
 describe("tokenize", () => {
-  it("lowercases and splits on whitespace", () => {
-    expect(tokenize("Deploy TO Staging")).toEqual(new Set(["deploy", "to", "staging"]));
+  it("lowercases, splits on whitespace, and drops stopwords", () => {
+    expect(tokenize("Deploy TO Staging")).toEqual(new Set(["deploy", "staging"]));
   });
 
   it("deduplicates repeated words", () => {
@@ -53,8 +53,8 @@ describe("tokenize", () => {
     expect(tokenize("   \t\n  ")).toEqual(new Set());
   });
 
-  it("handles multiple consecutive spaces", () => {
-    expect(tokenize("a  b   c")).toEqual(new Set(["a", "b", "c"]));
+  it("handles multiple consecutive spaces and stopwords", () => {
+    expect(tokenize("a  b   c")).toEqual(new Set(["b", "c"]));
   });
 });
 

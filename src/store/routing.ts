@@ -58,7 +58,9 @@ export async function getPromotedKeywords(classId: number, tenantId: string) {
 /** Get all gate-tenant pairs that have feedback.
  * Filter by enabled gates to avoid wasting compute on same result in cron jobs.
  */
-export async function getTenantGatesWithFeedback() {
+export async function getTenantGatesWithFeedback(): Promise<
+  { tenantId: string; gateId: number }[]
+> {
   const db = getDb();
   const rows = await db
     .selectDistinct({
@@ -69,7 +71,11 @@ export async function getTenantGatesWithFeedback() {
     .innerJoin(feedbackTable, eq(feedbackTable.routeId, routingEvents.routeId))
     .innerJoin(gatesTable, eq(gatesTable.id, routingEvents.gateId))
     .where(eq(gatesTable.enabled, 1));
-  return rows; // { tenantId, gateId }[]
+  // Skip events whose tenant/gate was deleted (FK set NULL): they can't be
+  // attributed to a live tenant-gate pair.
+  return rows.filter(
+    (r): r is { tenantId: string; gateId: number } => r.tenantId !== null && r.gateId !== null,
+  );
 }
 
 /**
@@ -78,7 +84,7 @@ export async function getTenantGatesWithFeedback() {
  */
 export async function getFeedbackCorpusByTenantGate(tenantId: string, gateId: number) {
   const db = getDb();
-  return db
+  const rows = await db
     .select({
       classId: routingEvents.predictedClassId,
       keywords: feedbackTable.extractedKeywords,
@@ -87,6 +93,12 @@ export async function getFeedbackCorpusByTenantGate(tenantId: string, gateId: nu
     .from(feedbackTable)
     .innerJoin(routingEvents, eq(feedbackTable.routeId, routingEvents.routeId))
     .where(and(eq(routingEvents.tenantId, tenantId), eq(routingEvents.gateId, gateId)));
+  // Skip events whose class was deleted (predictedClassId set NULL) — they
+  // can't be attributed to a class and can't teach the router anything.
+  return rows.filter(
+    (r): r is { classId: number; keywords: string[] | null; positive: number } =>
+      r.classId !== null,
+  );
 }
 
 /** Row shape returned by {@link getFeedbackCorpusByTenantGate}. */

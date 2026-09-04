@@ -1,6 +1,6 @@
 import type { Classifier, ClassificationResult } from "./types.js";
 import type { Gate } from "../../gates/types.js";
-import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT } from "../config.js";
+import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT, STOPWORDS } from "../config.js";
 import { buildResult } from "../utils.js";
 import { getPromotedKeywords } from "../../store/routing.js";
 
@@ -46,7 +46,12 @@ export class KeywordClassifier implements Classifier {
 }
 
 export function tokenize(text: string): Set<string> {
-  return new Set(text.toLowerCase().split(/\s+/).filter(Boolean));
+  return new Set(
+    text
+      .toLowerCase()
+      .split(/\s+/)
+      .filter((t) => t.length > 0 && !STOPWORDS.has(t)),
+  );
 }
 
 function matchedKeywords(tokens: Set<string>, keywords: string[]): string[] {

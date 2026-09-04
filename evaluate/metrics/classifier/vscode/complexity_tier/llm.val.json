@@ -1,0 +1,33 @@
+{
+  "dataset": "vscode",
+  "classifier": "llm",
+  "promptCount": 70,
+  "accuracy": 0.5143,
+  "macroAccuracy": 0.5118,
+  "ece": 0.4857,
+  "avgConfidenceCorrect": 1,
+  "avgConfidenceIncorrect": 1,
+  "avgLatencyMs": 5197,
+  "perClass": {
+    "medium": {
+      "total": 20,
+      "correct": 12,
+      "accuracy": 0.6
+    },
+    "simple": {
+      "total": 35,
+      "correct": 17,
+      "accuracy": 0.4857
+    },
+    "reasoning": {
+      "total": 13,
+      "correct": 6,
+      "accuracy": 0.4615
+    },
+    "complex": {
+      "total": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    }
+  }
+}

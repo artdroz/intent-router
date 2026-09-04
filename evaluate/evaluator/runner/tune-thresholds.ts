@@ -19,6 +19,8 @@
  *   --w-doubt       weight for regret cascades (default: 2.0)
  *   --dataset       k8,cpython,vscode (comma-separated, required)
  *   --label-field   adaptive_label | complexity_label (default: adaptive_label)
+ *   --file          only sweep files whose name (before .val.jsonl) starts with
+ *                   this string (e.g. m0.3_H0.9_kw0.3_sem0.7)
  *   --margin-min    sweep start (default: 0)
  *   --margin-max    sweep end   (default: 1.0)
  *   --entropy-min   sweep start (default: 0)
@@ -54,6 +56,8 @@ interface PreCascadeRow {
   cascade: boolean;
   scores: Record<string, number>;
   latencyMs: number;
+  kwScores?: Record<string, number>;
+  semScores?: Record<string, number>;
 }
 
 interface SweepResult {
@@ -78,7 +82,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const RUNS_DIR = resolve(__dirname, "../../runs");
 
-function findValRuns(datasetFilter: string[] | undefined, gateName: string): Array<{ dataset: string; filePath: string; paramTag: string }> {
+function findValRuns(
+  datasetFilter: string[] | undefined,
+  gateName: string,
+  fileFilter?: string,
+): Array<{ dataset: string; filePath: string; paramTag: string }> {
   const runs: Array<{ dataset: string; filePath: string; paramTag: string }> = [];
   const datasets = readdirSync(RUNS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
@@ -92,6 +100,7 @@ function findValRuns(datasetFilter: string[] | undefined, gateName: string): Arr
     const files = readdirSync(preDir).filter((f) => f.endsWith(".val.jsonl"));
     for (const file of files) {
       const paramTag = file.replace(".val.jsonl", "");
+      if (fileFilter && !paramTag.startsWith(fileFilter)) continue;
       runs.push({ dataset: ds, filePath: join(preDir, file), paramTag });
     }
   }
@@ -136,53 +145,55 @@ function sweep(
 ): SweepResult[] {
   const total = rows.length;
 
-  // Pre-compute correctness per row
+  // Pre-compute correctness + per-row confidence from the stored pre-cascade
+  // blend (at its fixed kw/sem weights).
   const rowCorrect = rows.map((r) => r.correct);
+  const rowMargin = rows.map((r) => r.margin);
+  const rowEntropy = rows.map((r) => r.entropy);
 
   const results: SweepResult[] = [];
 
   for (let m = marginMin; m <= marginMax + step / 2; m = roundStep(m + step, step)) {
     for (let h = entropyMin; h <= entropyMax + step / 2; h = roundStep(h + step, step)) {
-      let correct = 0;
-      let cascadeCount = 0;
-      let regretCascadeCount = 0;
+        let correct = 0;
+        let cascadeCount = 0;
+        let regretCascadeCount = 0;
 
-      for (let i = 0; i < total; i++) {
-        const row = rows[i];
-        const wouldCascade = row.margin < m || row.entropy > h;
-        if (wouldCascade) {
-          cascadeCount++;
-          if (rowCorrect[i]) regretCascadeCount++; // correct but cascaded = wasted LLM
-        } else if (rowCorrect[i]) {
-          correct++;
+        for (let i = 0; i < total; i++) {
+          const wouldCascade = rowMargin[i] < m || rowEntropy[i] > h;
+          if (wouldCascade) {
+            cascadeCount++;
+            if (rowCorrect[i]) regretCascadeCount++; // correct but cascaded = wasted LLM
+          } else if (rowCorrect[i]) {
+            correct++;
+          }
         }
+
+        // Silent errors = non-cascaded AND wrong.
+        const silentErrors = total - cascadeCount - correct;
+        const cascadeRate = cascadeCount / total;
+        const regretCascadeRate = regretCascadeCount / total;
+        const silentErrorRate = silentErrors / total;
+        const accuracy = correct / total;
+        const cost = wError * silentErrorRate + wDoubt * regretCascadeRate;
+
+        results.push({
+          margin: m,
+          entropy: h,
+          total,
+          correct,
+          accuracy,
+          cascadeCount,
+          cascadeRate,
+          regretCascadeCount,
+          regretCascadeRate,
+          silentErrors,
+          silentErrorRate,
+          cost,
+          datasets,
+        });
       }
-
-      // Silent errors = non-cascaded AND wrong.
-      const silentErrors = total - cascadeCount - correct;
-      const cascadeRate = cascadeCount / total;
-      const regretCascadeRate = regretCascadeCount / total;
-      const silentErrorRate = silentErrors / total;
-      const accuracy = correct / total;
-      const cost = wError * silentErrorRate + wDoubt * regretCascadeRate;
-
-      results.push({
-        margin: m,
-        entropy: h,
-        total,
-        correct,
-        accuracy,
-        cascadeCount,
-        cascadeRate,
-        regretCascadeCount,
-        regretCascadeRate,
-        silentErrors,
-        silentErrorRate,
-        cost,
-        datasets,
-      });
     }
-  }
 
   return results;
 }
@@ -210,15 +221,20 @@ function main() {
   }
 
   const gateName = gateNameFor(raw["label-field"] || "adaptive_label");
+  const fileFilter = raw.file ? raw.file.trim() : undefined;
 
   const marginMin = raw["margin-min"] ? parseFloat(raw["margin-min"]) : DEFAULT_SWEEP_MARGIN_MIN;
   const marginMax = raw["margin-max"] ? parseFloat(raw["margin-max"]) : DEFAULT_SWEEP_MARGIN_MAX;
   const entropyMin = raw["entropy-min"] ? parseFloat(raw["entropy-min"]) : DEFAULT_SWEEP_ENTROPY_MIN;
   const entropyMax = raw["entropy-max"] ? parseFloat(raw["entropy-max"]) : DEFAULT_SWEEP_ENTROPY_MAX;
 
-  const runs = findValRuns(datasetFilter, gateName);
+  const runs = findValRuns(datasetFilter, gateName, fileFilter);
   if (runs.length === 0) {
-    console.log("No pre-cascade *.val.jsonl runs found.");
+    console.log(
+      fileFilter
+        ? `No pre-cascade *.val.jsonl runs matching "${fileFilter}" found.`
+        : "No pre-cascade *.val.jsonl runs found.",
+    );
     return;
   }
 
@@ -236,7 +252,6 @@ function main() {
   console.log(`Datasets: ${allDatasets.join(", ")}`);
   console.log(`Weights: W_Error=${wError}  W_Doubt=${wDoubt}`);
   console.log(`Regret = (${wError} × SilentErr%) + (${wDoubt} × RegretCas%)`);
-  console.log(`Sweep: margin [${marginMin}, ${marginMax}]  entropy [${entropyMin}, ${entropyMax}]  step=${step}\n`);
 
   // Sweep
   const results = sweep(
@@ -249,8 +264,8 @@ function main() {
 
   // ── Print top N ──
   console.log(`Top ${Math.min(topN, results.length)} of ${results.length} combinations:\n`);
-  console.log(" Rank  Margin  Entropy   Acc%    SilentErr%  RegretCas%     Cost");
-  console.log("─".repeat(72));
+  console.log(" Rank   Margin  Entropy   Acc%    SilentErr%  RegretCas%     Cost");
+  console.log("─".repeat(80));
 
   for (let i = 0; i < Math.min(topN, results.length); i++) {
     const r = results[i];
@@ -265,7 +280,7 @@ function main() {
   console.log(`\n🏆  Best: margin=${best.margin}  entropy=${best.entropy}  →  Cost = ${best.cost.toFixed(4)}`);
   console.log(`    Silent Error Rate = ${(best.silentErrorRate * 100).toFixed(1)}%  |  Regret Cascade Rate = ${(best.regretCascadeRate * 100).toFixed(1)}%`);
   console.log(`    Accuracy = ${(best.accuracy * 100).toFixed(1)}%  (pre-cascade, non-cascaded only)`);
-  console.log(`    CLI: --margin ${best.margin} --entropy-threshold ${best.entropy}`);
+  console.log(`    CAS_MARGIN_THRESHOLD = ${best.margin}  |  CAS_ENTROPY_THRESHOLD = ${best.entropy}`);
 
   // ── Pareto frontier hint ──
   console.log(`\nTo explore trade-offs, try: --w-error 2.0 --w-doubt 1.0  (penalise errors more)`);

@@ -1,0 +1,32 @@
+{
+  "dataset": "vscode",
+  "promptCount": 70,
+  "overallAccuracy": 0.5857,
+  "llmConditionalAccuracy": 0.5745,
+  "cascadeRate": 0.6714,
+  "avgLatencyMs": 3774,
+  "avgPreLatencyMs": 389,
+  "avgLlmLatencyMs": 5042,
+  "perClass": {
+    "medium": {
+      "total": 20,
+      "correct": 11,
+      "accuracy": 0.55
+    },
+    "simple": {
+      "total": 35,
+      "correct": 22,
+      "accuracy": 0.6286
+    },
+    "reasoning": {
+      "total": 13,
+      "correct": 7,
+      "accuracy": 0.5385
+    },
+    "complex": {
+      "total": 2,
+      "correct": 1,
+      "accuracy": 0.5
+    }
+  }
+}

@@ -1,0 +1,48 @@
+{
+  "stage": "pre-cascade",
+  "totalPrompts": 630,
+  "datasets": [
+    "k8",
+    "cpython",
+    "vscode"
+  ],
+  "runs": {
+    "m0.3_H0.8_kw0.3_sem0.7": {
+      "cascadeRate": {
+        "weighted": 0.5794,
+        "variance": 0.0116
+      },
+      "silentErrorRate": {
+        "weighted": 0.1333,
+        "variance": 0.0001
+      },
+      "cascadePrecision": {
+        "weighted": 0.5869,
+        "variance": 0.0021
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 210,
+          "cascadeRate": 0.6381,
+          "silentErrorRate": 0.1238,
+          "cascadePrecision": 0.5821,
+          "regretCost": 0.6571
+        },
+        "cpython": {
+          "promptCount": 210,
+          "cascadeRate": 0.4286,
+          "silentErrorRate": 0.1333,
+          "cascadePrecision": 0.5333,
+          "regretCost": 0.5333
+        },
+        "vscode": {
+          "promptCount": 210,
+          "cascadeRate": 0.6714,
+          "silentErrorRate": 0.1429,
+          "cascadePrecision": 0.6454,
+          "regretCost": 0.619
+        }
+      }
+    }
+  }
+}

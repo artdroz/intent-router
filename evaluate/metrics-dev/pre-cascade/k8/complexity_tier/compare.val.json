@@ -1,0 +1,43 @@
+{
+  "dataset": "k8",
+  "split": "val",
+  "runs": [
+    {
+      "params": {
+        "margin": 0.3,
+        "entropy": 0.8,
+        "kwWeight": 0.3,
+        "semWeight": 0.7
+      },
+      "accuracy": 0.4571,
+      "cascadeRate": 0.7857,
+      "silentErrorRate": 0.0429,
+      "cascadePrecision": 0.6364,
+      "regretCost": 0.6143
+    },
+    {
+      "params": {
+        "margin": 0.3,
+        "entropy": 1.3,
+        "kwWeight": 0.3,
+        "semWeight": 0.7
+      },
+      "accuracy": 0.4143,
+      "cascadeRate": 0.7,
+      "silentErrorRate": 0.1143,
+      "cascadePrecision": 0.6735,
+      "regretCost": 0.5714
+    }
+  ],
+  "best": {
+    "params": {
+      "margin": 0.3,
+      "entropy": 1.3,
+      "kwWeight": 0.3,
+      "semWeight": 0.7
+    },
+    "regretCost": 0.5714,
+    "silentErrorRate": 0.1143,
+    "cascadeRate": 0.7
+  }
+}

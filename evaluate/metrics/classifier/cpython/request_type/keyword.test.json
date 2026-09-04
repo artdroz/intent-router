@@ -1,0 +1,48 @@
+{
+  "dataset": "cpython",
+  "classifier": "keyword",
+  "promptCount": 210,
+  "accuracy": 0.5571,
+  "macroAccuracy": 0.2886,
+  "ece": 0.2276,
+  "avgConfidenceCorrect": 0.7332,
+  "avgConfidenceIncorrect": 0.566,
+  "avgLatencyMs": 2,
+  "perClass": {
+    "code_understanding": {
+      "total": 109,
+      "correct": 75,
+      "accuracy": 0.6881
+    },
+    "general": {
+      "total": 26,
+      "correct": 2,
+      "accuracy": 0.0769
+    },
+    "code_generation": {
+      "total": 35,
+      "correct": 21,
+      "accuracy": 0.6
+    },
+    "writing": {
+      "total": 29,
+      "correct": 19,
+      "accuracy": 0.6552
+    },
+    "analytical_reasoning": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "technical_design": {
+      "total": 7,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "factual_lookup": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

@@ -176,16 +176,14 @@ export const routingEvents = pgTable(
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
     routeId: text("route_id").notNull().unique(), // public ID returned to caller
-    tenantId: uuid("tenant_id")
-      .notNull()
-      .references(() => tenants.id, { onDelete: "cascade" }),
-    gateId: integer("gate_id")
-      .notNull()
-      .references(() => gates.id, { onDelete: "cascade" }),
+    // Audit trail survives parent deletion: NULL means the referenced
+    // tenant/gate/class was deleted after this event was logged.
+    tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "set null" }),
+    gateId: integer("gate_id").references(() => gates.id, { onDelete: "set null" }),
     prompt: text("prompt").notNull(),
-    predictedClassId: integer("predicted_class_id")
-      .notNull()
-      .references(() => classes.id, { onDelete: "cascade" }),
+    predictedClassId: integer("predicted_class_id").references(() => classes.id, {
+      onDelete: "set null",
+    }),
     stage: text("stage").notNull(), // 'keyword' | 'semantic' | 'llm'
     scores: jsonb("scores").notNull(), // { label: score, ... }
     channel: text("channel").notNull().default("rest"), // 'rest' | 'litellm'

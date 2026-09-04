@@ -1,0 +1,140 @@
+{
+  "stage": "classifier",
+  "totalPrompts": 1890,
+  "datasets": [
+    "k8",
+    "cpython",
+    "vscode"
+  ],
+  "classifiers": {
+    "keyword": {
+      "accuracy": {
+        "weighted": 0.3222,
+        "macro": 0.2931,
+        "variance": 0.0035
+      },
+      "ece": {
+        "weighted": 0.4633,
+        "macro": 0.4633,
+        "variance": 0.0015,
+        "pooled": 0.4499
+      },
+      "latencyMs": {
+        "weighted": 1,
+        "variance": 0
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 210,
+          "accuracy": 0.2381,
+          "ece": 0.4321,
+          "avgConfidenceCorrect": 0.6726,
+          "avgConfidenceIncorrect": 0.568,
+          "avgLatencyMs": 1
+        },
+        "cpython": {
+          "promptCount": 210,
+          "accuracy": 0.3667,
+          "ece": 0.4389,
+          "avgConfidenceCorrect": 0.3919,
+          "avgConfidenceIncorrect": 0.4632,
+          "avgLatencyMs": 1
+        },
+        "vscode": {
+          "promptCount": 210,
+          "accuracy": 0.3619,
+          "ece": 0.5188,
+          "avgConfidenceCorrect": 0.4967,
+          "avgConfidenceIncorrect": 0.6358,
+          "avgLatencyMs": 1
+        }
+      }
+    },
+    "llm": {
+      "accuracy": {
+        "weighted": 0.6048,
+        "macro": 0.5646,
+        "variance": 0.0018
+      },
+      "ece": {
+        "weighted": 0.3952,
+        "macro": 0.3952,
+        "variance": 0.0018,
+        "pooled": 0.3952
+      },
+      "latencyMs": {
+        "weighted": 5218,
+        "variance": 367721.5556
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 210,
+          "accuracy": 0.6571,
+          "ece": 0.3429,
+          "avgConfidenceCorrect": 1,
+          "avgConfidenceIncorrect": 1,
+          "avgLatencyMs": 5133
+        },
+        "cpython": {
+          "promptCount": 210,
+          "accuracy": 0.6048,
+          "ece": 0.3952,
+          "avgConfidenceCorrect": 1,
+          "avgConfidenceIncorrect": 1,
+          "avgLatencyMs": 4522
+        },
+        "vscode": {
+          "promptCount": 210,
+          "accuracy": 0.5524,
+          "ece": 0.4476,
+          "avgConfidenceCorrect": 1,
+          "avgConfidenceIncorrect": 1,
+          "avgLatencyMs": 6000
+        }
+      }
+    },
+    "semantic": {
+      "accuracy": {
+        "weighted": 0.5032,
+        "macro": 0.419,
+        "variance": 0.003
+      },
+      "ece": {
+        "weighted": 0.1548,
+        "macro": 0.1548,
+        "variance": 0.0007,
+        "pooled": 0.1421
+      },
+      "latencyMs": {
+        "weighted": 509,
+        "variance": 59.5556
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 210,
+          "accuracy": 0.5714,
+          "ece": 0.1223,
+          "avgConfidenceCorrect": 0.6589,
+          "avgConfidenceIncorrect": 0.5669,
+          "avgLatencyMs": 506
+        },
+        "cpython": {
+          "promptCount": 210,
+          "accuracy": 0.5,
+          "ece": 0.1561,
+          "avgConfidenceCorrect": 0.6524,
+          "avgConfidenceIncorrect": 0.6079,
+          "avgLatencyMs": 520
+        },
+        "vscode": {
+          "promptCount": 210,
+          "accuracy": 0.4381,
+          "ece": 0.1859,
+          "avgConfidenceCorrect": 0.6273,
+          "avgConfidenceIncorrect": 0.6091,
+          "avgLatencyMs": 502
+        }
+      }
+    }
+  }
+}

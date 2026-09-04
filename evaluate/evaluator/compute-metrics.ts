@@ -11,7 +11,7 @@
  *   npx tsx evaluate/evaluator/compute-metrics.ts --stage all --dataset k8,cpython,vscode \
  *     --split val,test --label-field adaptive_label
  *
- *   --stage       classifier | pre-cascade | router | all (required)
+ *   --stage       classifier | pre-cascade | three-tier | router | all (required)
  *   --dataset     k8,cpython,vscode (comma-separated, required)
  *   --label-field adaptive_label | complexity_label (default: adaptive_label)
  *   --split       val,test (comma-separated, omit to read all unsplit + split files)
@@ -32,6 +32,7 @@ import {
   type ClassifierPrompt,
   type PreCascadePrompt,
   type RouterPrompt,
+  type ThreeTierPrompt,
   ensureDir,
   gateNameFor,
 } from "./runner/shared.js";
@@ -81,6 +82,27 @@ interface RouterMetrics {
   perClass: Record<string, { total: number; correct: number; accuracy: number }>;
 }
 
+interface ThreeTierMetrics {
+  dataset: string;
+  params: { margin: number; entropy: number };
+  promptCount: number;
+  accuracy: number;
+  cascadeRate: number;
+  silentErrorRate: number;
+  cascadePrecision: number;
+  regretCost: number;
+  regretCascadeRate: number;
+  keywordRate: number;
+  semanticRate: number;
+  keywordAccuracy: number;
+  semanticAccuracy: number;
+  marginP50: number;
+  marginP90: number;
+  entropyP50: number;
+  entropyP90: number;
+  perClass: Record<string, { total: number; correct: number; accuracy: number }>;
+}
+
 // ── CLI ──
 
 function parseArgs() {
@@ -101,7 +123,7 @@ function parseArgs() {
   };
 }
 
-const ALL_STAGES = ["classifier", "pre-cascade", "router"] as const;
+const ALL_STAGES = ["classifier", "pre-cascade", "three-tier", "router"] as const;
 
 // ── Main ──
 
@@ -113,7 +135,9 @@ async function main() {
     process.exit(1);
   }
   if (!stage) {
-    console.error("Error: --stage is required (classifier | pre-cascade | router | all)");
+    console.error(
+      "Error: --stage is required (classifier | pre-cascade | three-tier | router | all)",
+    );
     process.exit(1);
   }
 
@@ -142,6 +166,9 @@ async function main() {
             break;
           case "pre-cascade":
             handlePreCascade(ds, sp, gateName);
+            break;
+          case "three-tier":
+            handleThreeTier(ds, sp, gateName);
             break;
           case "router":
             handleRouter(ds, sp, gateName);
@@ -335,6 +362,134 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
 
     const compareName = split ? `compare.${split}.json` : "compare.json";
     writeMetrics("pre-cascade", dataset, gateName, compareName, compare);
+  }
+}
+
+// ── Stage: Three-Tier ──
+
+function handleThreeTier(dataset: string, split: string | undefined, gateName: string) {
+  const dir = join(RUNS_DIR, dataset, gateName, "three-tier");
+  if (!existsSync(dir)) {
+    console.log(`No runs found at ${dir}`);
+    return;
+  }
+
+  const allMetrics: ThreeTierMetrics[] = [];
+
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith(".jsonl")) continue;
+    if (!matchSplit(file, split)) continue;
+
+    const lines = readFileSync(join(dir, file), "utf-8")
+      .trim()
+      .split("\n")
+      .filter(Boolean);
+    const prompts: ThreeTierPrompt[] = lines.map((l) => JSON.parse(l));
+
+    const total = prompts.length;
+    const correct = prompts.filter((p) => p.correct).length;
+    const accuracy = correct / total;
+
+    const cascaded = prompts.filter((p) => p.cascade);
+    const cascadeRate = cascaded.length / total;
+
+    // Silent error rate: wrong but NOT cascaded (should have deferred).
+    const silentErrors = prompts.filter((p) => !p.correct && !p.cascade).length;
+    const silentErrorRate = silentErrors / total;
+
+    // Cascade precision: among deferrals, how many were actually wrong?
+    const wrongCascaded = cascaded.filter((p) => !p.correct).length;
+    const cascadePrecision =
+      cascaded.length > 0 ? wrongCascaded / cascaded.length : 0;
+
+    // Regret cascade rate: correct but cascaded (wasted LLM).
+    const correctButCascade = prompts.filter((p) => p.correct && p.cascade).length;
+    const regretCascadeRate = correctButCascade / total;
+
+    const regretCost = DEFAULT_W_ERROR * silentErrorRate + DEFAULT_W_DOUBT * regretCascadeRate;
+
+    // Tier distribution + per-tier accuracy.
+    const keywordRows = prompts.filter((p) => p.stage === "keyword");
+    const semanticRows = prompts.filter((p) => p.stage === "semantic");
+    const keywordRate = keywordRows.length / total;
+    const semanticRate = semanticRows.length / total;
+    const keywordAccuracy =
+      keywordRows.length > 0
+        ? keywordRows.filter((p) => p.correct).length / keywordRows.length
+        : 0;
+    const semanticAccuracy =
+      semanticRows.length > 0
+        ? semanticRows.filter((p) => p.correct).length / semanticRows.length
+        : 0;
+
+    const margins = prompts.map((p) => p.margin).sort((a, b) => a - b);
+    const entropies = prompts.map((p) => p.entropy).sort((a, b) => a - b);
+
+    // Parse params from filename: m{0.54}_H{0.78}.jsonl or m{0.54}_H{0.78}.{split}.jsonl
+    const base = basename(file, ".jsonl");
+    const paramStr = split ? base.replace(new RegExp(`\\.${split}$`), "") : base;
+    const paramMatch = paramStr.match(/^m([\d.]+)_H([\d.]+)$/);
+    const params = paramMatch
+      ? {
+          margin: parseFloat(paramMatch[1]),
+          entropy: parseFloat(paramMatch[2]),
+        }
+      : { margin: 0, entropy: 0 };
+
+    const metrics: ThreeTierMetrics = {
+      dataset,
+      params,
+      promptCount: total,
+      accuracy: round(accuracy),
+      cascadeRate: round(cascadeRate),
+      silentErrorRate: round(silentErrorRate),
+      cascadePrecision: round(cascadePrecision),
+      regretCost: round(regretCost),
+      regretCascadeRate: round(regretCascadeRate),
+      keywordRate: round(keywordRate),
+      semanticRate: round(semanticRate),
+      keywordAccuracy: round(keywordAccuracy),
+      semanticAccuracy: round(semanticAccuracy),
+      marginP50: round(margins[Math.floor(margins.length * 0.5)] ?? 0),
+      marginP90: round(margins[Math.floor(margins.length * 0.9)] ?? 0),
+      entropyP50: round(entropies[Math.floor(entropies.length * 0.5)] ?? 0),
+      entropyP90: round(entropies[Math.floor(entropies.length * 0.9)] ?? 0),
+      perClass: buildPerClass(prompts),
+    };
+
+    allMetrics.push(metrics);
+    writeMetrics("three-tier", dataset, gateName, file.replace(".jsonl", ".json"), metrics);
+  }
+
+  // Write combined compare.json with best params
+  if (allMetrics.length > 1) {
+    const best = allMetrics.reduce((a, b) =>
+      a.regretCost < b.regretCost ? a : b,
+    );
+    const compare = {
+      dataset,
+      split: split ?? null,
+      runs: allMetrics.map((m) => ({
+        params: m.params,
+        accuracy: m.accuracy,
+        cascadeRate: m.cascadeRate,
+        silentErrorRate: m.silentErrorRate,
+        cascadePrecision: m.cascadePrecision,
+        regretCascadeRate: m.regretCascadeRate,
+        regretCost: m.regretCost,
+        keywordRate: m.keywordRate,
+        semanticRate: m.semanticRate,
+      })),
+      best: {
+        params: best.params,
+        regretCost: best.regretCost,
+        silentErrorRate: best.silentErrorRate,
+        cascadeRate: best.cascadeRate,
+      },
+    };
+
+    const compareName = split ? `compare.${split}.json` : "compare.json";
+    writeMetrics("three-tier", dataset, gateName, compareName, compare);
   }
 }
 

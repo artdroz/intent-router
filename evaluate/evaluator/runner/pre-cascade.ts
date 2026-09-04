@@ -31,6 +31,7 @@
 import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
 import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
+import { computeRelativeMargin, computeEntropy } from "../../../src/routing/utils.js";
 
 import {
   initDbAndSeed,
@@ -65,6 +66,8 @@ interface PreEvalResult {
   entropy: number;
   wouldCascade: boolean;
   scores: Record<string, number>;
+  kwScores: Record<string, number>;
+  semScores: Record<string, number>;
   durationMs: number;
 }
 
@@ -154,18 +157,27 @@ async function main() {
         const t0 = performance.now();
         const pre = await router.runPrecascade(row.prompt, gate, tenantId);
         const durationMs = Math.round(performance.now() - t0);
-        const wouldCascade = shouldCascade(pre.margin, pre.entropy, margin, entropyThreshold);
+        const preMargin = computeRelativeMargin(pre.sorted);
+        const preEntropy = computeEntropy(pre.sorted);
+        const wouldCascade = shouldCascade(pre.sorted, pre.kwResult, pre.semResult, margin, entropyThreshold);
         const correct = pre.result.label === row.label;
+
+        const kwScores: Record<string, number> = {};
+        for (const [label, entry] of pre.kwResult.entries) kwScores[label] = entry.prob;
+        const semScores: Record<string, number> = {};
+        for (const [label, entry] of pre.semResult.entries) semScores[label] = entry.prob;
 
         comboResults.push({
           id: row.id,
           truth: row.label,
           predicted: pre.result.label,
           correct,
-          margin: pre.margin,
-          entropy: pre.entropy,
+          margin: preMargin,
+          entropy: preEntropy,
           wouldCascade: wouldCascade,
           scores: pre.result.scores,
+          kwScores,
+          semScores,
           durationMs,
         });
 

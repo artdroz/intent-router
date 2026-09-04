@@ -11,15 +11,16 @@
  */
 
 import { eq } from "drizzle-orm";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getDb, initDb } from "../../src/store/db.js";
 import { tenants } from "../../src/store/schema.js";
 import { DATABASE_URL } from "./config.js";
 
-async function main() {
+export async function main() {
   const url = DATABASE_URL;
   if (!url) {
-    console.error("DATABASE_URL is required — set it or create a .env");
-    process.exit(1);
+    throw new Error("DATABASE_URL is required — set it or create a .env");
   }
 
   initDb(url);
@@ -41,9 +42,11 @@ async function main() {
   );
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("Cleanup failed:", err);
-    process.exit(1);
-  });
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("Cleanup failed:", err);
+      process.exit(1);
+    });
+}

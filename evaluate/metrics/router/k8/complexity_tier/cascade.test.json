@@ -1,0 +1,32 @@
+{
+  "dataset": "k8",
+  "promptCount": 210,
+  "overallAccuracy": 0.6381,
+  "llmConditionalAccuracy": 0.6352,
+  "cascadeRate": 0.7571,
+  "avgLatencyMs": 4420,
+  "avgPreLatencyMs": 368,
+  "avgLlmLatencyMs": 5351,
+  "perClass": {
+    "reasoning": {
+      "total": 109,
+      "correct": 85,
+      "accuracy": 0.7798
+    },
+    "medium": {
+      "total": 48,
+      "correct": 23,
+      "accuracy": 0.4792
+    },
+    "simple": {
+      "total": 38,
+      "correct": 23,
+      "accuracy": 0.6053
+    },
+    "complex": {
+      "total": 15,
+      "correct": 3,
+      "accuracy": 0.2
+    }
+  }
+}

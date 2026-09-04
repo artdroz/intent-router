@@ -1,0 +1,42 @@
+{
+  "dataset": "k8",
+  "params": {
+    "margin": 0.3,
+    "entropy": 0.8,
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.4952,
+  "cascadeRate": 0.6143,
+  "silentErrorRate": 0.1714,
+  "cascadePrecision": 0.5426,
+  "regretCost": 0.7333,
+  "regretCascadeRate": 0.281,
+  "marginP50": 0.2615,
+  "marginP90": 0.6636,
+  "entropyP50": 0.7198,
+  "entropyP90": 0.9111,
+  "perClass": {
+    "reasoning": {
+      "total": 109,
+      "correct": 71,
+      "accuracy": 0.6514
+    },
+    "medium": {
+      "total": 48,
+      "correct": 13,
+      "accuracy": 0.2708
+    },
+    "simple": {
+      "total": 38,
+      "correct": 17,
+      "accuracy": 0.4474
+    },
+    "complex": {
+      "total": 15,
+      "correct": 3,
+      "accuracy": 0.2
+    }
+  }
+}

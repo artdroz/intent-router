@@ -158,7 +158,7 @@ async function main() {
         const pre = await router.runPrecascade(row.prompt, gate, tenantId);
         const preLatencyMs = Math.round(performance.now() - t0);
 
-        const wouldCascade = shouldCascade(pre.margin, pre.entropy, margin, entropy);
+        const wouldCascade = shouldCascade(pre.sorted, pre.kwResult, pre.semResult, margin, entropy);
 
         let predicted: string;
         let llmLatencyMs = 0;

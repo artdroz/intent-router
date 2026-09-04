@@ -88,28 +88,50 @@ describe("aggregateSemantic", () => {
 });
 
 describe("detectVetoedLabels", () => {
-  it("vetoes intents whose guardrail clears the similarity threshold", () => {
+  // Defaults under test: vetoThreshold = 0.5, minVotes = 2, margin = 0.
+  it("vetoes a label with a quorum of guardrails above the veto threshold", () => {
     const rows = [
-      row({ label: "x", source: "neg_feedback", distance: 0.1 }), // sim 0.9 ≥ 0.7
-      row({ label: "y", source: "neg_feedback", distance: 0.9 }), // sim 0.1 < 0.7
-      row({ label: "z", source: "config", distance: 0.1 }),
+      row({ label: "x", source: "neg_feedback", distance: 0.1 }), // sim 0.9
+      row({ label: "x", source: "neg_feedback", distance: 0.2 }), // sim 0.8 (2nd vote)
+      row({ label: "y", source: "neg_feedback", distance: 0.1 }), // sim 0.9, only 1 vote
     ];
 
-    expect(detectVetoedLabels(rows, 0.7)).toEqual(new Set(["x"]));
+    expect(detectVetoedLabels(rows)).toEqual(new Set(["x"]));
   });
 
-  it("vetoes nothing when no guardrail clears the threshold", () => {
-    const rows = [row({ label: "x", source: "neg_feedback", distance: 0.9 })];
+  it("vetoes nothing below the vote quorum", () => {
+    const rows = [row({ label: "x", source: "neg_feedback", distance: 0.1 })];
 
-    expect(detectVetoedLabels(rows, 0.7).size).toBe(0);
+    expect(detectVetoedLabels(rows).size).toBe(0);
+  });
+
+  it("vetoes nothing below the veto similarity threshold", () => {
+    const rows = [
+      row({ label: "x", source: "neg_feedback", distance: 0.6 }), // sim 0.4 < 0.5
+      row({ label: "x", source: "neg_feedback", distance: 0.7 }), // sim 0.3 < 0.5
+    ];
+
+    expect(detectVetoedLabels(rows).size).toBe(0);
+  });
+
+  it("does not veto a label whose positive evidence beats the guardrails", () => {
+    const rows = [
+      row({ label: "x", source: "neg_feedback", distance: 0.2 }), // sim 0.8
+      row({ label: "x", source: "neg_feedback", distance: 0.3 }), // sim 0.7 (2nd vote)
+      row({ label: "x", source: "config", distance: 0.1 }), // sim 0.9 > 0.8 → positive wins
+    ];
+
+    expect(detectVetoedLabels(rows).size).toBe(0);
   });
 
   it("vetoes multiple intents independently", () => {
     const rows = [
       row({ label: "x", source: "neg_feedback", distance: 0.1 }),
+      row({ label: "x", source: "neg_feedback", distance: 0.2 }),
+      row({ label: "y", source: "neg_feedback", distance: 0.1 }),
       row({ label: "y", source: "neg_feedback", distance: 0.2 }),
     ];
 
-    expect(detectVetoedLabels(rows, 0.7)).toEqual(new Set(["x", "y"]));
+    expect(detectVetoedLabels(rows)).toEqual(new Set(["x", "y"]));
   });
 });

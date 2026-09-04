@@ -1,0 +1,39 @@
+{
+  "dataset": "vscode",
+  "params": {
+    "margin": 0.54,
+    "entropy": 0.78
+  },
+  "promptCount": 3,
+  "accuracy": 0.3333,
+  "cascadeRate": 0,
+  "silentErrorRate": 0.6667,
+  "cascadePrecision": 0,
+  "regretCost": 0.6667,
+  "regretCascadeRate": 0,
+  "keywordRate": 0.6667,
+  "semanticRate": 0.3333,
+  "keywordAccuracy": 0,
+  "semanticAccuracy": 1,
+  "marginP50": 1,
+  "marginP90": 1,
+  "entropyP50": 0,
+  "entropyP90": 0.6676,
+  "perClass": {
+    "code_generation": {
+      "total": 1,
+      "correct": 1,
+      "accuracy": 1
+    },
+    "technical_design": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "general": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

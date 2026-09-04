@@ -19,7 +19,9 @@
           "modernize the code to use the newer API",
           "proposal: use the faster implementation in this module",
           "use the new helper function in this module",
-          "rewrite this part of the module more efficiently"
+          "rewrite this part of the module more efficiently",
+          "generate the boilerplate for a new service from the project template",
+          "add a background worker that drains jobs from the queue"
         ],
         "keywords": [
           "add", "implement", "create", "write", "build", "generate", "scaffold",
@@ -40,7 +42,12 @@
           "walk me through how authentication tokens are refreshed",
           "this bug report describes a crash when the process starts",
           "the stack trace shows an unhandled exception inside the extension",
-          "the log reports an unhandled error with a stack trace"
+          "the log reports an unhandled error with a stack trace",
+          "explain what this function returns when the input list is empty",
+          "trace the data flow from the API call down to the database layer",
+          "figure out which code path triggers this deprecation warning",
+          "summarize the behavior changes introduced by this changeset",
+          "point out the risky parts in this diff before it is merged"
         ],
         "keywords": [
           "explain", "understand", "review", "trace", "investigate", "debug", "fix",
@@ -65,7 +72,9 @@
           "outline the expected behavior and scope of a proposed feature",
           "proposed API for extensions to query editor state",
           "decompose the component into smaller reusable parts",
-          "move the shared logic into a common module"
+          "move the shared logic into a common module",
+          "model the data entities and their relationships for the new domain",
+          "choose between a queue-based and a request-response integration and justify the trade-offs"
         ],
         "keywords": [
           "design", "architecture", "architect", "rfc", "proposal", "propose",
@@ -87,7 +96,12 @@
           "determine whether the two schemes are equivalent",
           "figure out the mathematical invariant that holds across iterations",
           "compute the result of this arithmetic expression",
-          "prove or disprove this mathematical statement"
+          "prove or disprove this mathematical statement",
+          "work out the probability that this hashing scheme produces a collision",
+          "analyze whether this greedy strategy is optimal for the given problem",
+          "derive the state transition logic that explains the observed behavior",
+          "reason through the edge cases of this recursive function",
+          "solve the constraint-satisfaction problem and list the valid assignments"
         ],
         "keywords": [
           "solve", "compute", "prove", "reason", "logic", "math", "derive",
@@ -107,7 +121,13 @@
           "draft an announcement email for the upcoming release",
           "add a troubleshooting section to the setup page",
           "fix a typo in the documentation",
-          "improve the wording of this error message"
+          "improve the wording of this error message",
+          "edit the release notes to reflect the new features and fixes",
+          "rewrite the onboarding guide so new contributors can follow it step by step",
+          "draft a short blog post announcing the deprecation timeline",
+          "write a quick reference card for the most commonly used commands",
+          "correct the grammar in the contributor guidelines",
+          "write an FAQ section answering the most common setup questions"
         ],
         "keywords": [
           "document", "docs", "documentation", "readme", "guide", "reference",
@@ -129,7 +149,12 @@
           "how do I register a tool in the extension",
           "is it possible to create a terminal in this context",
           "list the available configuration options",
-          "which platforms are supported"
+          "which platforms are supported",
+          "what does this configuration flag control",
+          "when was this feature introduced and in which release",
+          "how many replicas does the default deployment run",
+          "which endpoint serves the health check",
+          "what is the default value of this timeout setting"
         ],
         "keywords": [
           "clarify", "clarification", "supported", "compatible", "compatibility",
@@ -153,7 +178,9 @@
           "finalize the existing API for wider adoption",
           "deprecate the existing API surface",
           "upgrade the bundled dependency to the latest version",
-          "decide on the release process for this component"
+          "decide on the release process for this component",
+          "set up repository automation for assigning reviewers to new pull requests",
+          "clean up stale labels and milestones across the issue tracker"
         ],
         "keywords": [
           "ci", "cd", "workflow", "pipeline", "lint", "linter", "config",

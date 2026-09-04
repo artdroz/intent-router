@@ -84,21 +84,55 @@ describe("scoreClassKeywords", () => {
     expect(promoted).toContain("deploy");
   });
 
-  it("scores negative-only keywords lower than positive-only keywords", () => {
+  it("never promotes a keyword with zero positive support", () => {
     const byClass: ClassDocs = new Map([
-      [1, [{ keywords: ["deploy"], positive: 0 }]], // negative-only
+      [1, [{ keywords: ["deploy"], positive: 0 }]], // negative-only → wrongly attributed
       [2, [{ keywords: ["debug"], positive: 1 }]],
     ]);
     const df = computeDocFrequencies(byClass);
 
-    const promoted1 = scoreClassKeywords(byClass.get(1)!, df, 2, 0, 10);
+    const promoted = scoreClassKeywords(byClass.get(1)!, df, 2, 0, 10);
 
-    // Both appear (threshold 0), but verify negative-only still gets through
-    expect(promoted1).toContain("deploy");
+    expect(promoted).toEqual([]);
+  });
 
-    // With a stricter threshold, the negative-only keyword is excluded
-    const strict = scoreClassKeywords(byClass.get(1)!, df, 2, 0.5, 10);
-    expect(strict).not.toContain("deploy");
+  it("drops keywords whose precision is below the floor (coin-flip)", () => {
+    // 1 pos / 1 neg → precision 0.5 < LRN_PRECISION_FLOOR (0.6)
+    const byClass: ClassDocs = new Map([
+      [
+        1,
+        [
+          { keywords: ["mixed"], positive: 1 },
+          { keywords: ["mixed"], positive: 0 },
+        ],
+      ],
+      [2, [{ keywords: ["debug"], positive: 1 }]],
+    ]);
+    const df = computeDocFrequencies(byClass);
+
+    const promoted = scoreClassKeywords(byClass.get(1)!, df, 2, 0, 10);
+
+    expect(promoted).toEqual([]);
+  });
+
+  it("keeps keywords with sufficient positive precision", () => {
+    // 2 pos / 1 neg → precision 0.67 ≥ 0.6
+    const byClass: ClassDocs = new Map([
+      [
+        1,
+        [
+          { keywords: ["good"], positive: 1 },
+          { keywords: ["good"], positive: 1 },
+          { keywords: ["good"], positive: 0 },
+        ],
+      ],
+      [2, [{ keywords: ["debug"], positive: 1 }]],
+    ]);
+    const df = computeDocFrequencies(byClass);
+
+    const promoted = scoreClassKeywords(byClass.get(1)!, df, 2, 0, 10);
+
+    expect(promoted).toEqual(["good"]);
   });
 
   it("returns empty for a class with no documents", () => {

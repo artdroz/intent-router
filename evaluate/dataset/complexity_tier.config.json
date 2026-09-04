@@ -16,7 +16,12 @@
           "Rename a variable in one file to match the naming convention",
           "The brand color in the stylesheet is a hardcoded hex value and needs replacing",
           "The documentation lists a default value that no longer matches the code",
-          "Reserve an issue number for an upcoming fix, with no technical detail yet"
+          "Reserve an issue number for an upcoming fix, with no technical detail yet",
+          "Update the copyright year in the license header of one file",
+          "Change the default timeout value in the example configuration",
+          "Fix a broken link on the documentation index page",
+          "Add the missing comma to this JSON snippet in the README",
+          "Mark the rollout checklist item as complete in the tracking issue"
         ],
         "keywords": [
           "simple", "trivial", "rename", "typo", "typos", "format", "list", "lookup",
@@ -37,7 +42,12 @@
           "The error message says the module is missing, so install and import it",
           "Implement a small feature with a clearly specified interface and requirements",
           "Add validation for a new input field with an explicit schema",
-          "Migrate a single component to the new hooks pattern"
+          "Migrate a single component to the new hooks pattern",
+          "Add a new endpoint to the controller with a clearly defined request and response shape",
+          "Extend the existing parser to handle the new field and update its tests",
+          "Apply the requested changes from the code review and update the affected tests",
+          "Wire the new environment variable through the settings to the service that reads it",
+          "Convert this component to the newer rendering pattern without changing its behavior"
         ],
         "keywords": [
           "add", "update", "extend", "refactor", "implement", "feature", "function",
@@ -58,7 +68,12 @@
           "Deprecate the legacy interface across all remaining components",
           "Split the monolith into two services and wire up a message queue between them",
           "Introduce multi-tenancy with per-tenant schema isolation across the stack",
-          "Implement an event-driven pipeline with an outbox and dead-letter handling"
+          "Implement an event-driven pipeline with an outbox and dead-letter handling",
+          "Bump the framework to the next major version and fix every breaking change",
+          "Rebrand the package across all references, imports, and configuration files",
+          "Generate type definitions and client libraries for the entire public API surface",
+          "Standardize error handling and logging across every service in the monorepo",
+          "Migrate all services from the legacy transport to the new protocol"
         ],
         "keywords": [
           "migrate", "migration", "upgrade", "vendor", "dependency", "dependencies",
@@ -79,7 +94,12 @@
           "Prove that this locking scheme cannot deadlock",
           "Reason about the security implications of this trust boundary",
           "Determine why the garbage collector pauses spike under allocation pressure",
-          "Reconstruct the sequence of events that corrupts the checkpoint file"
+          "Reconstruct the sequence of events that corrupts the checkpoint file",
+          "Explain why the system deadlocks only when two specific features are enabled together",
+          "Prove that the proposed consensus algorithm satisfies its safety property",
+          "Determine whether this failure is a genuine bug or an artifact of the test harness",
+          "Reason about which interleaving of concurrent writes produces the inconsistent state",
+          "Prove that the algorithm terminates for all finite inputs"
         ],
         "keywords": [
           "diagnose", "diagnosis", "race", "leak", "deadlock", "flaky", "flaking",

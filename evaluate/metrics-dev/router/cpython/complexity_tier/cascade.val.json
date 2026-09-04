@@ -1,0 +1,32 @@
+{
+  "dataset": "cpython",
+  "promptCount": 70,
+  "overallAccuracy": 0.6571,
+  "llmConditionalAccuracy": 0.6842,
+  "cascadeRate": 0.5429,
+  "avgLatencyMs": 2772,
+  "avgPreLatencyMs": 403,
+  "avgLlmLatencyMs": 4364,
+  "perClass": {
+    "simple": {
+      "total": 16,
+      "correct": 14,
+      "accuracy": 0.875
+    },
+    "medium": {
+      "total": 28,
+      "correct": 19,
+      "accuracy": 0.6786
+    },
+    "reasoning": {
+      "total": 16,
+      "correct": 7,
+      "accuracy": 0.4375
+    },
+    "complex": {
+      "total": 10,
+      "correct": 6,
+      "accuracy": 0.6
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "stage": "router",
+  "totalPrompts": 630,
+  "datasets": [
+    "k8",
+    "cpython",
+    "vscode"
+  ],
+  "llmConditionalAccuracy": {
+    "weighted": 0.5786,
+    "variance": 0.0038
+  },
+  "overallAccuracy": {
+    "weighted": 0.5699,
+    "variance": 0.0055
+  },
+  "latencyMs": {
+    "weighted": 4204.6667,
+    "variance": 31398.2222
+  },
+  "perDataset": {
+    "k8": {
+      "promptCount": 210,
+      "overallAccuracy": 0.6381,
+      "llmConditionalAccuracy": 0.6352,
+      "cascadeRate": 0.7571,
+      "avgLatencyMs": 4420
+    },
+    "cpython": {
+      "promptCount": 210,
+      "overallAccuracy": 0.6048,
+      "llmConditionalAccuracy": 0.6071,
+      "cascadeRate": 0.6667,
+      "avgLatencyMs": 3986
+    },
+    "vscode": {
+      "promptCount": 210,
+      "overallAccuracy": 0.4667,
+      "llmConditionalAccuracy": 0.4935,
+      "cascadeRate": 0.7333,
+      "avgLatencyMs": 4208
+    }
+  }
+}

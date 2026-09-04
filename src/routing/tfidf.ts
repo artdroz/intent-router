@@ -1,4 +1,5 @@
 import type { FeedbackCorpusRow } from "../store/routing.js";
+import { LRN_PRECISION_FLOOR } from "./config.js";
 
 export type FeedbackDoc = {
   keywords: string[];
@@ -43,10 +44,15 @@ export function computeDocFrequencies(byClass: ClassDocs): Map<string, number> {
 /**
  * Score a single class's keywords and return the promoted (top-N) list.
  *
- * Score(k, c) = TF(k, c) * IDF(k) * signalRatio(k, c)
- *   - TF(k, c)      = docsContaining(k, c) / totalDocs(c)
- *   - IDF(k)        = log(numClasses / classesContaining(k))
- *   - signalRatio   = (posCount + 1) / (posCount + negCount + 1)  (Laplace-smoothed)
+ * Score(k, c) = TF_pos(k, c) * IDF(k)
+ *   - TF_pos(k, c) = positiveDocsContaining(k, c) / totalDocs(c)
+ *   - IDF(k)       = log(numClasses / classesContaining(k))
+ *
+ * Negative feedback acts as a precision gate (a hard form of "minus scores"):
+ * a keyword is promoted only if it has at least {@link LRN_MIN_SUPPORT} positive
+ * occurrences AND its precision `pos / (pos + neg)` reaches
+ * {@link LRN_PRECISION_FLOOR}. A 5-pos/5-neg keyword (coin flip) is excluded,
+ * and a 0-pos keyword (wrongly attributed to this class) can never be promoted.
  */
 export function scoreClassKeywords(
   docs: FeedbackDoc[],
@@ -67,10 +73,15 @@ export function scoreClassKeywords(
   for (const kw of keywords) {
     const posCount = docs.filter((d) => d.keywords.includes(kw) && d.positive === 1).length;
     const negCount = docs.filter((d) => d.keywords.includes(kw) && d.positive === 0).length;
-    const tf = docs.filter((d) => d.keywords.includes(kw)).length / totalDocs;
+    // Skip if no enough positive evidence
+    if (posCount < 1) continue;
+
+    const precision = posCount / (posCount + negCount);
+    if (precision < LRN_PRECISION_FLOOR) continue;
+
+    const tf = posCount / totalDocs;
     const idf = Math.log(numClasses / (docFreq.get(kw) ?? 1));
-    const signalRatio = (posCount + 1) / (posCount + negCount + 1);
-    tfIdf.set(kw, tf * idf * signalRatio);
+    tfIdf.set(kw, tf * idf);
   }
 
   return [...tfIdf.entries()]

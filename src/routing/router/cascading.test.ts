@@ -14,25 +14,25 @@ import type { Gate } from "../../gates/types.js";
 const entry = (prob: number, evidence: string[] = []): ClassificationEntry => ({ prob, evidence });
 
 describe("scoreClass", () => {
-  it("applies no boost when the keyword score is zero", () => {
+  it("combines keyword and semantic scores with a linear blend", () => {
     const result = scoreClass(entry(0.0), entry(0.4), 0.3, 0.7);
 
-    // gateMultiplier = 1 + 0.5 * 0 = 1.0 → (0*0.3 + 0.4*0.7) * 1.0
+    // (0*0.3 + 0.4*0.7)
     expect(result.prob).toBeCloseTo(0.28);
   });
 
-  it("applies the full boost when the keyword score is one", () => {
+  it("ignores the semantic score when it has no signal", () => {
     const result = scoreClass(entry(1.0), entry(0.0), 0.3, 0.7);
 
-    // gateMultiplier = 1 + 0.5 * 1 = 1.5 → (1*0.3 + 0) * 1.5
-    expect(result.prob).toBeCloseTo(0.45);
+    // (1*0.3 + 0*0.7)
+    expect(result.prob).toBeCloseTo(0.3);
   });
 
-  it("scales the boost by keyword strength", () => {
+  it("weights keyword and semantic scores independently", () => {
     const result = scoreClass(entry(0.6), entry(0.4), 0.3, 0.7);
 
-    // gateMultiplier = 1 + 0.5 * 0.6 = 1.3 → (0.6*0.3 + 0.4*0.7) * 1.3
-    expect(result.prob).toBeCloseTo((0.18 + 0.28) * 1.3);
+    // (0.6*0.3 + 0.4*0.7)
+    expect(result.prob).toBeCloseTo(0.18 + 0.28);
   });
 
   it("returns zero when both entries are undefined", () => {
@@ -65,20 +65,46 @@ describe("entriesToScores", () => {
 });
 
 describe("shouldCascade", () => {
+  const kw = (label: string, prob: number): ClassificationResult => ({
+    classifier: "keyword",
+    entries: new Map([[label, entry(prob)]]),
+  });
+  const sem = (label: string, prob: number): ClassificationResult => ({
+    classifier: "semantic",
+    entries: new Map([[label, entry(prob)]]),
+  });
+
   it("cascades when the margin is below the threshold", () => {
-    expect(shouldCascade(0.1, 0.5, 0.15, 1.2)).toBe(true);
+    const sorted: [string, ClassificationEntry][] = [
+      ["a", entry(0.5)],
+      ["b", entry(0.5)],
+    ];
+    expect(shouldCascade(sorted, kw("a", 0.5), sem("a", 0.5), 0.6, 1.2)).toBe(true);
   });
 
   it("cascades when entropy is above the threshold", () => {
-    expect(shouldCascade(0.3, 1.5, 0.15, 1.2)).toBe(true);
+    const sorted: [string, ClassificationEntry][] = [
+      ["a", entry(0.5)],
+      ["b", entry(0.3)],
+      ["c", entry(0.2)],
+    ];
+    expect(shouldCascade(sorted, kw("a", 0.5), sem("a", 0.5), 0.15, 0.8)).toBe(true);
   });
 
-  it("does not cascade when both margin and entropy are within bounds", () => {
-    expect(shouldCascade(0.3, 0.5, 0.15, 1.2)).toBe(false);
+  it("does not cascade for a confident distribution with conflicting classifiers", () => {
+    const sorted: [string, ClassificationEntry][] = [
+      ["a", entry(0.9)],
+      ["b", entry(0.1)],
+    ];
+    expect(shouldCascade(sorted, kw("a", 0.9), sem("b", 0.9), 0.15, 1.2)).toBe(false);
   });
 
-  it("does not cascade at exact thresholds (boundary inclusive)", () => {
-    expect(shouldCascade(0.15, 1.2, 0.15, 1.2)).toBe(false);
+  it("cascades for a confident distribution with agreeing classifiers", () => {
+    const sorted: [string, ClassificationEntry][] = [
+      ["a", entry(0.9)],
+      ["b", entry(0.1)],
+    ];
+    expect(shouldCascade(sorted, kw("a", 0.9), sem("a", 0.9), 0.15, 1.2)).toBe(true);
   });
 });
 

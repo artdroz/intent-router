@@ -1,0 +1,85 @@
+{
+  "stage": "pre-cascade",
+  "totalPrompts": 420,
+  "datasets": [
+    "k8",
+    "cpython",
+    "vscode"
+  ],
+  "runs": {
+    "m0.3_H0.8_kw0.3_sem0.7": {
+      "cascadeRate": {
+        "weighted": 0.6667,
+        "variance": 0.0098
+      },
+      "silentErrorRate": {
+        "weighted": 0.1143,
+        "variance": 0.0029
+      },
+      "cascadePrecision": {
+        "weighted": 0.6317,
+        "variance": 0.002
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 70,
+          "cascadeRate": 0.7857,
+          "silentErrorRate": 0.0429,
+          "cascadePrecision": 0.6364,
+          "regretCost": 0.6143
+        },
+        "cpython": {
+          "promptCount": 70,
+          "cascadeRate": 0.5429,
+          "silentErrorRate": 0.1714,
+          "cascadePrecision": 0.6842,
+          "regretCost": 0.5143
+        },
+        "vscode": {
+          "promptCount": 70,
+          "cascadeRate": 0.6714,
+          "silentErrorRate": 0.1286,
+          "cascadePrecision": 0.5745,
+          "regretCost": 0.7
+        }
+      }
+    },
+    "m0.3_H1.3_kw0.3_sem0.7": {
+      "cascadeRate": {
+        "weighted": 0.6,
+        "variance": 0.0053
+      },
+      "silentErrorRate": {
+        "weighted": 0.2,
+        "variance": 0.0049
+      },
+      "cascadePrecision": {
+        "weighted": 0.7108,
+        "variance": 0.0027
+      },
+      "perDataset": {
+        "k8": {
+          "promptCount": 70,
+          "cascadeRate": 0.7,
+          "silentErrorRate": 0.1143,
+          "cascadePrecision": 0.6735,
+          "regretCost": 0.5714
+        },
+        "cpython": {
+          "promptCount": 70,
+          "cascadeRate": 0.5714,
+          "silentErrorRate": 0.2,
+          "cascadePrecision": 0.675,
+          "regretCost": 0.5714
+        },
+        "vscode": {
+          "promptCount": 70,
+          "cascadeRate": 0.5286,
+          "silentErrorRate": 0.2857,
+          "cascadePrecision": 0.7838,
+          "regretCost": 0.5143
+        }
+      }
+    }
+  }
+}

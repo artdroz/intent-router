@@ -1,0 +1,33 @@
+{
+  "dataset": "cpython",
+  "classifier": "llm",
+  "promptCount": 70,
+  "accuracy": 0.6714,
+  "macroAccuracy": 0.65,
+  "ece": 0.3286,
+  "avgConfidenceCorrect": 1,
+  "avgConfidenceIncorrect": 1,
+  "avgLatencyMs": 4246,
+  "perClass": {
+    "simple": {
+      "total": 16,
+      "correct": 13,
+      "accuracy": 0.8125
+    },
+    "medium": {
+      "total": 28,
+      "correct": 21,
+      "accuracy": 0.75
+    },
+    "reasoning": {
+      "total": 16,
+      "correct": 7,
+      "accuracy": 0.4375
+    },
+    "complex": {
+      "total": 10,
+      "correct": 6,
+      "accuracy": 0.6
+    }
+  }
+}

@@ -2,6 +2,9 @@ import type { Classifier, ClassificationResult } from "./types.js";
 import type { EmbedClient } from "../../lib/embed-client.js";
 import type { Gate } from "../../gates/types.js";
 import {
+  LRN_MIN_VOTES,
+  LRN_SEM_VETO_MARGIN,
+  LRN_SEM_VETO_THRESHOLD,
   SEM_CONFIG_WEIGHT,
   SEM_FEEDBACK_WEIGHT,
   SEM_SIMILARITY_THRESHOLD,
@@ -43,7 +46,7 @@ export class SemanticClassifier implements Classifier {
     // Explicit veto: a negative guardrail within the similarity threshold vetoes
     // its intent, removing it from the semantic distribution so the cascade falls
     // back to the 2nd-best intent or the LLM.
-    const vetoed = detectVetoedLabels(rows, this.similarityThreshold);
+    const vetoed = detectVetoedLabels(rows);
     const scorable = vetoed.size > 0 ? rows.filter((r) => !vetoed.has(r.label)) : rows;
 
     return aggregateSemantic(
@@ -63,12 +66,34 @@ const NEG_FEEDBACK_SOURCE = "neg_feedback";
  * results. A guardrail fires only when its similarity (`1 - distance`) is at
  * or above the threshold — a distant guardrail must not veto anything.
  */
-export function detectVetoedLabels(rows: SearchResult[], threshold: number): Set<string> {
-  const vetoed = new Set<string>();
+export function detectVetoedLabels(
+  rows: SearchResult[],
+): Set<string> {
+  const minVotes = LRN_MIN_VOTES;
+  const vetoThreshold = LRN_SEM_VETO_THRESHOLD;
+  const margin = LRN_SEM_VETO_MARGIN;
+
+  const guardrailVotes = new Map<string, number[]>();
+  const bestPositive = new Map<string, number>();
+
   for (const row of rows) {
-    if (row.source === NEG_FEEDBACK_SOURCE && 1 - row.distance >= threshold) {
-      vetoed.add(row.label);
+    const sim = 1 - row.distance;
+    if (row.source === NEG_FEEDBACK_SOURCE) {
+      if (sim >= vetoThreshold) {
+        const votes = guardrailVotes.get(row.label) ?? [];
+        votes.push(sim);
+        guardrailVotes.set(row.label, votes);
+      }
+    } else {
+      bestPositive.set(row.label, Math.max(bestPositive.get(row.label) ?? 0, sim));
     }
+  }
+
+  const vetoed = new Set<string>();
+  for (const [label, votes] of guardrailVotes) {
+    if (votes.length < minVotes) continue;
+    const topVote = Math.max(...votes);
+    if (topVote - (bestPositive.get(label) ?? 0) >= margin) vetoed.add(label);
   }
   return vetoed;
 }
