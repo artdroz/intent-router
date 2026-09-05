@@ -1,0 +1,43 @@
+{
+  "dataset": "cpython",
+  "params": {
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.4619,
+  "cascadeRate": 0.8667,
+  "silentErrorRate": 0.0476,
+  "cascadePrecision": 0.5659,
+  "cost": 0.4238,
+  "regretCascadeRate": 0.3762,
+  "ece": 0.1236,
+  "avgConfidenceCorrect": 0.214,
+  "avgConfidenceIncorrect": 0.104,
+  "kwAvgConfidenceCorrect": 0.2746,
+  "kwAvgConfidenceIncorrect": 0.3252,
+  "semAvgConfidenceCorrect": 0.821,
+  "semAvgConfidenceIncorrect": 0.7128,
+  "perClass": {
+    "reasoning": {
+      "total": 69,
+      "correct": 33,
+      "accuracy": 0.4783
+    },
+    "medium": {
+      "total": 56,
+      "correct": 18,
+      "accuracy": 0.3214
+    },
+    "simple": {
+      "total": 68,
+      "correct": 42,
+      "accuracy": 0.6176
+    },
+    "complex": {
+      "total": 17,
+      "correct": 4,
+      "accuracy": 0.2353
+    }
+  }
+}

@@ -27,7 +27,7 @@
  *                  multiple fields are pooled into a single combined result
  *   --w-error      weight for silent errors (default: 1.0)
  *   --w-cas        weight for each cascade (default: 1.0)
- *   --step         strength-threshold sweep step (keyword default 1, semantic default 0.1)
+ *   --step         strength-threshold sweep step (keyword default 0.05, semantic default 0.1)
  *   --margin-step  sweep step for the margin threshold (default: 0.05)
  *   --limit        max prompts to precompute (quick iteration)
  *   --top          combinations to show (default: 15)
@@ -59,6 +59,7 @@ import {
   SEM_CONF_TOP_K,
   KW_FEEDBACK_BETA,
 } from "../../../src/routing/config.js";
+import { writeFileSync } from "fs";
 
 // ── Types ──
 
@@ -150,7 +151,7 @@ async function precomputeSemantic(
 function evaluateKeyword(
   rows: KwRow[],
   beta: number,
-  countThr: number,
+  scoreThr: number,
   marginThr: number,
 ): { cascade: number; silent: number; regret: number } {
   let cascade = 0;
@@ -159,7 +160,7 @@ function evaluateKeyword(
 
   for (const row of rows) {
     const scored = [...row.hits.entries()]
-      .map(([label, hit]) => ({ label, hit, score: scoreKeywordClass(hit, beta) }))
+      .map(([label, hit]) => ({ label, score: scoreKeywordClass(hit, beta) }))
       .sort((a, b) => b.score - a.score);
     const top = scored[0];
 
@@ -168,9 +169,10 @@ function evaluateKeyword(
       continue;
     }
 
-    const strength = top.hit.configHits + top.hit.promotedHits;
+    // Strength is the normalized coverage score, matching the classifier gate.
+    const strength = top.score;
     const margin = top.score - (scored[1]?.score ?? 0);
-    const confident = strength >= countThr && margin >= marginThr;
+    const confident = strength >= scoreThr && margin >= marginThr;
 
     if (!confident) {
       cascade++;
@@ -223,9 +225,9 @@ function sweepKeyword(
   wError: number,
   wCas: number,
   beta: number,
-  countMin: number,
-  countMax: number,
-  countStep: number,
+  scoreMin: number,
+  scoreMax: number,
+  scoreStep: number,
   marginMin: number,
   marginMax: number,
   marginStep: number,
@@ -233,14 +235,14 @@ function sweepKeyword(
   const total = rows.length;
   const results: SweepResult[] = [];
 
-  for (let c = countMin; c <= countMax + countStep / 2; c = roundStep(c + countStep, countStep)) {
+  for (let s = scoreMin; s <= scoreMax + scoreStep / 2; s = roundStep(s + scoreStep, scoreStep)) {
     for (let m = marginMin; m <= marginMax + marginStep / 2; m = roundStep(m + marginStep, marginStep)) {
-      const { cascade, silent, regret } = evaluateKeyword(rows, beta, c, m);
+      const { cascade, silent, regret } = evaluateKeyword(rows, beta, s, m);
       const cascadeRate = cascade / total;
       const regretCascadeRate = regret / total;
       const silentErrorRate = silent / total;
       results.push({
-        strengthThr: c,
+        strengthThr: s,
         marginThr: m,
         cascadeRate,
         regretCascadeRate,
@@ -390,15 +392,16 @@ async function main() {
     if (name === "keyword") {
       console.log(`\nPrecomputing keyword hits for ${limited.length} val rows…`);
       const kwRows = await precomputeKeyword(limited, tenantId);
-      // Keyword strength is an integer hit count, so the default step is 1.
-      const countStep = raw.step ? parseFloat(raw.step) : 1;
+      // Keyword strength is now the normalized coverage score in [0, 1].
+      const scoreStep = raw.step ? parseFloat(raw.step) : 0.05;
       const marginStep = raw["margin-step"] ? parseFloat(raw["margin-step"]) : 0.05;
       const results = sweepKeyword(
         kwRows, wError, wCas, KW_FEEDBACK_BETA,
-        0, 5, countStep,
+        0, 1, scoreStep,
         0, 0.5, marginStep,
       );
       printResults(name, kwRows.length, wError, wCas, topN, results);
+      exportToJsonl(name, results);
     } else {
       console.log(`\nPrecomputing semantic scores for ${limited.length} val rows…`);
       const semRows = await precomputeSemantic(limited, tenantId, cachedEmbed);
@@ -410,8 +413,24 @@ async function main() {
         0, 0.5, marginStep,
       );
       printResults(name, semRows.length, wError, wCas, topN, results);
+      exportToJsonl(name, results);
     }
   }
+}
+
+function exportToJsonl(name: string, results: SweepResult[]) {
+  const filename = `${name}-sweep-results.jsonl`;
+  const lines = results.map(r => JSON.stringify({
+    strengthThr: r.strengthThr,
+    marginThr: r.marginThr,
+    cascadePercent: Number((r.cascadeRate * 100).toFixed(2)),
+    regretCasPercent: Number((r.regretCascadeRate * 100).toFixed(2)),
+    silentErrPercent: Number((r.silentErrorRate * 100).toFixed(2)),
+    cost: Number(r.cost.toFixed(4))
+  })).join("\n");
+  
+  writeFileSync(filename, lines, "utf-8");
+  console.log(`\n ${name} results output to: ${filename}`);
 }
 
 main().catch((err) => {

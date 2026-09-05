@@ -18,10 +18,8 @@
  *   --split           val,test (comma-separated, omit for unsplit)
  *   --verbose         true | false
  *   --limit           max prompts per combo
- *   --margin          margin threshold (default: 0.3)
- *   --entropy         entropy threshold (default: 0.8, normalized 0–1)
- *   --kw-weight       keyword weight in aggregation (default: 0.3)
- *   --sem-weight      semantic weight in aggregation (default: 0.7)
+ *   --kw-weight       keyword weight in aggregation (default: CAS_KW_WEIGHT = 0.3)
+ *   --sem-weight      semantic weight in aggregation (default: CAS_SEM_WEIGHT = 0.7)
  *   --embedding-url   embedding API base URL
  *   --embedding-model embedding model name (default: nomic-embed-text)
  *   --llm-url         LLM API base URL (default: http://localhost:11434)
@@ -54,11 +52,11 @@ import {
   DEFAULT_EMBEDDING_MODEL,
   DEFAULT_LLM_URL,
   DEFAULT_LLM_MODEL,
-  DEFAULT_MARGIN_THRESHOLD,
-  DEFAULT_ENTROPY_THRESHOLD,
-  DEFAULT_KW_WEIGHT,
-  DEFAULT_SEM_WEIGHT,
 } from "../config.js";
+import {
+  CAS_KW_WEIGHT,
+  CAS_SEM_WEIGHT,
+} from "../../../src/routing/config.js";
 
 // ── Types ──
 
@@ -91,12 +89,8 @@ async function main() {
 
   const verbose = raw.verbose === "true";
   const limit = raw.limit ? parseInt(raw.limit, 10) : undefined;
-  const margin = raw.margin ? parseFloat(raw.margin) : DEFAULT_MARGIN_THRESHOLD;
-  const kwWeight = raw["kw-weight"] ? parseFloat(raw["kw-weight"]) : DEFAULT_KW_WEIGHT;
-  const semWeight = raw["sem-weight"] ? parseFloat(raw["sem-weight"]) : DEFAULT_SEM_WEIGHT;
-  const entropy = raw["entropy"]
-    ? parseFloat(raw["entropy"])
-    : DEFAULT_ENTROPY_THRESHOLD;
+  const kwWeight = raw["kw-weight"] ? parseFloat(raw["kw-weight"]) : CAS_KW_WEIGHT;
+  const semWeight = raw["sem-weight"] ? parseFloat(raw["sem-weight"]) : CAS_SEM_WEIGHT;
   const embeddingUrl = raw["embedding-url"] ?? DEFAULT_EMBEDDING_URL;
   const embeddingModel = raw["embedding-model"] ?? DEFAULT_EMBEDDING_MODEL;
   const llmUrl = raw["llm-url"] ?? DEFAULT_LLM_URL;
@@ -109,17 +103,15 @@ async function main() {
   const llm = new LlmClassifier(makeLlmClient(llmUrl, llmModel));
 
   const router = new CascadingRouter(keyword, semantic, llm, {
-    marginThreshold: margin,
     kwWeight,
     semWeight,
-    entropyThreshold: entropy,
   });
 
   console.log(
     `\nRouter: cascade  |  Datasets: ${datasets.join(", ")}  |  Splits: ${splits.map((s) => s ?? "-").join(", ")}`,
   );
   console.log(
-    `Margin: ${margin}  |  Entropy: ${entropy}  |  KW weight: ${kwWeight}  |  SEM weight: ${semWeight}`,
+    `KW weight: ${kwWeight}  |  SEM weight: ${semWeight}`,
   );
 
   for (const labelField of labelFields) {

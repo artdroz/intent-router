@@ -105,7 +105,7 @@ describe("resolvePrecascade", () => {
   it("uses the keyword label when only keyword is confident", () => {
     const decision = resolvePrecascade(
       kw("a", 0.9, { isConfident: true, confScore: 2 }),
-      sem("b", 0.9, { isConfident: false, confScore: 0 }),
+      sem("a", 0.9, { isConfident: false, confScore: 0 }),
       makeGate(["a", "b"]),
       0.3,
       0.7,
@@ -114,7 +114,30 @@ describe("resolvePrecascade", () => {
     expect(decision.label).toBe("a");
   });
 
+  it("cascades when only keyword is confident and semantic disagrees", () => {
+    const decision = resolvePrecascade(
+      kw("a", 0.9, { isConfident: true, confScore: 2 }),
+      sem("b", 0.9, { isConfident: false, confScore: 0 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(true);
+  });
+
   it("uses the semantic label when only semantic is confident", () => {
+    const decision = resolvePrecascade(
+      kw("b", 0.9, { isConfident: false, confScore: 0 }),
+      sem("b", 0.9, { isConfident: true, confScore: 2 }),
+      makeGate(["a", "b"]),
+      0.3,
+      0.7,
+    );
+    expect(decision.cascade).toBe(false);
+    expect(decision.label).toBe("b");
+  });
+
+  it("uses the semantic label when only semantic is confident even if keyword disagrees", () => {
     const decision = resolvePrecascade(
       kw("a", 0.9, { isConfident: false, confScore: 0 }),
       sem("b", 0.9, { isConfident: true, confScore: 2 }),

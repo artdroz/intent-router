@@ -1,0 +1,58 @@
+{
+  "dataset": "cpython",
+  "params": {
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.619,
+  "cascadeRate": 0.7381,
+  "silentErrorRate": 0.0524,
+  "cascadePrecision": 0.4452,
+  "cost": 0.4619,
+  "regretCascadeRate": 0.4095,
+  "ece": 0.1137,
+  "avgConfidenceCorrect": 0.3779,
+  "avgConfidenceIncorrect": 0.1599,
+  "kwAvgConfidenceCorrect": 0.7095,
+  "kwAvgConfidenceIncorrect": 0.5043,
+  "semAvgConfidenceCorrect": 0.8025,
+  "semAvgConfidenceIncorrect": 0.6787,
+  "perClass": {
+    "code_understanding": {
+      "total": 109,
+      "correct": 88,
+      "accuracy": 0.8073
+    },
+    "general": {
+      "total": 26,
+      "correct": 3,
+      "accuracy": 0.1154
+    },
+    "code_generation": {
+      "total": 35,
+      "correct": 13,
+      "accuracy": 0.3714
+    },
+    "writing": {
+      "total": 29,
+      "correct": 26,
+      "accuracy": 0.8966
+    },
+    "analytical_reasoning": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "technical_design": {
+      "total": 7,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "factual_lookup": {
+      "total": 2,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

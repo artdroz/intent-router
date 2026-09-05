@@ -1,0 +1,53 @@
+{
+  "dataset": "k8",
+  "classifier": "keyword",
+  "promptCount": 210,
+  "accuracy": 0.3619,
+  "macroAccuracy": 0.3015,
+  "ece": 0.2432,
+  "avgConfidenceCorrect": 0.6842,
+  "avgConfidenceIncorrect": 0.4747,
+  "silentErrorRate": 0.0714,
+  "regretCascadeRate": 0.2857,
+  "cascadePrecision": 0.6648,
+  "cascadeRate": 0.8524,
+  "cost": 0.3571,
+  "avgLatencyMs": 2,
+  "perClass": {
+    "technical_design": {
+      "total": 44,
+      "correct": 9,
+      "accuracy": 0.2045
+    },
+    "analytical_reasoning": {
+      "total": 10,
+      "correct": 2,
+      "accuracy": 0.2
+    },
+    "general": {
+      "total": 28,
+      "correct": 1,
+      "accuracy": 0.0357
+    },
+    "factual_lookup": {
+      "total": 7,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "code_generation": {
+      "total": 21,
+      "correct": 11,
+      "accuracy": 0.5238
+    },
+    "code_understanding": {
+      "total": 92,
+      "correct": 48,
+      "accuracy": 0.5217
+    },
+    "writing": {
+      "total": 8,
+      "correct": 5,
+      "accuracy": 0.625
+    }
+  }
+}

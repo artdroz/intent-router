@@ -22,8 +22,8 @@
  *   --split             val,test (comma-separated, omit for unsplit)
  *   --verbose           true | false
  *   --limit             max prompts per combo
- *   --margin            margin threshold (default: 0.54)
- *   --entropy-threshold entropy threshold (default: 0.78, normalized 0–1)
+ *   --margin            margin threshold (default: CAS_MARGIN_THRESHOLD = 0.54)
+ *   --entropy-threshold entropy threshold (default: CAS_ENTROPY_THRESHOLD = 0.78, normalized 0–1)
  *   --embedding-url     embedding API base URL
  *   --embedding-model   embedding model name (default: nomic-embed-text)
  *
@@ -60,9 +60,11 @@ import {
 import {
   DEFAULT_EMBEDDING_URL,
   DEFAULT_EMBEDDING_MODEL,
-  DEFAULT_MARGIN_THRESHOLD,
-  DEFAULT_ENTROPY_THRESHOLD,
 } from "../config.js";
+import {
+  CAS_MARGIN_THRESHOLD,
+  CAS_ENTROPY_THRESHOLD,
+} from "../../../src/routing/config.js";
 
 // ── Helpers ──
 
@@ -112,10 +114,10 @@ async function main() {
 
   const verbose = raw.verbose === "true";
   const limit = raw.limit ? parseInt(raw.limit, 10) : undefined;
-  const margin = raw.margin ? parseFloat(raw.margin) : DEFAULT_MARGIN_THRESHOLD;
+  const margin = raw.margin ? parseFloat(raw.margin) : CAS_MARGIN_THRESHOLD;
   const entropyThreshold = raw["entropy-threshold"]
     ? parseFloat(raw["entropy-threshold"])
-    : DEFAULT_ENTROPY_THRESHOLD;
+    : CAS_ENTROPY_THRESHOLD;
   const embeddingUrl = raw["embedding-url"] ?? DEFAULT_EMBEDDING_URL;
   const embeddingModel = raw["embedding-model"] ?? DEFAULT_EMBEDDING_MODEL;
 

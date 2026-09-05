@@ -1,0 +1,53 @@
+{
+  "dataset": "vscode",
+  "params": {
+    "kwWeight": 0.3,
+    "semWeight": 0.7
+  },
+  "promptCount": 210,
+  "accuracy": 0.4143,
+  "cascadeRate": 0.881,
+  "silentErrorRate": 0.0381,
+  "cascadePrecision": 0.6216,
+  "cost": 0.3714,
+  "regretCascadeRate": 0.3333,
+  "ece": 0.0701,
+  "avgConfidenceCorrect": 0.2249,
+  "avgConfidenceIncorrect": 0.0795,
+  "kwAvgConfidenceCorrect": 0.5891,
+  "kwAvgConfidenceIncorrect": 0.5692,
+  "semAvgConfidenceCorrect": 0.77,
+  "semAvgConfidenceIncorrect": 0.7174,
+  "perClass": {
+    "general": {
+      "total": 65,
+      "correct": 13,
+      "accuracy": 0.2
+    },
+    "code_generation": {
+      "total": 30,
+      "correct": 6,
+      "accuracy": 0.2
+    },
+    "technical_design": {
+      "total": 37,
+      "correct": 21,
+      "accuracy": 0.5676
+    },
+    "writing": {
+      "total": 4,
+      "correct": 0,
+      "accuracy": 0
+    },
+    "code_understanding": {
+      "total": 67,
+      "correct": 46,
+      "accuracy": 0.6866
+    },
+    "factual_lookup": {
+      "total": 7,
+      "correct": 1,
+      "accuracy": 0.1429
+    }
+  }
+}

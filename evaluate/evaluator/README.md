@@ -43,7 +43,7 @@ The evaluation framework is divided into three distinct stages to validate both 
 
 **Threshold Tuning:**
 To optimize the margin/entropy thresholds before final testing, we minimize a custom **Routing Regret Function**:
-`Regret Cost = (W_Error × Silent_Error_Rate) + (W_Doubt × Regret_Cascade_Rate)`
+`Regret Cost = (W_Error × Silent_Error_Rate) + (W_Cas × Regret_Cascade_Rate)`
 *Note: This cost function is used strictly for parameter tuning on the validation set to balance the Pareto trade-off between confident errors and unnecessary compute waste.*
 
 ---
