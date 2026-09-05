@@ -17,6 +17,8 @@ export interface Router {
 export type CascadeOptions = {
   kwWeight?: number;
   semWeight?: number;
+  marginThreshold?: number;
+  entropyThreshold?: number;
 };
 
 /** Provider for a last-resort class label based on routing history. */

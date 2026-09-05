@@ -5,9 +5,7 @@
  *   - classifier.ts      (classifier accuracy eval)
  *   - pre-cascade.ts     (pre-cascade tuning, no LLM)
  *   - router.ts          (cascade router eval with LLM)
- *   - router-with-learning.ts (cascade router with continuous learning)
- *   - three-tier-cascade.ts   (sequential keyword → semantic → LLM)
- *   - tune-classifier-thresholds.ts (classifier confidence-gate sweep)
+ *   - tune-thresholds.ts (threshold sweep over val runs)
  */
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
@@ -345,8 +343,6 @@ export async function initDbAndSeedAll(
     indexEmbeddings?: boolean;
     embeddingUrl?: string;
     embeddingModel?: string;
-    /** Reuse the gates/embeddings already in the DB (skip cleanup + re-indexing). */
-    reuse?: boolean;
   } = {},
 ): Promise<DbContext> {
   const databaseUrl = DATABASE_URL;
@@ -357,24 +353,15 @@ export async function initDbAndSeedAll(
   }
   initDb(databaseUrl);
 
-  // REUSE_DB=1 reuses the already-seeded gates + embeddings: no cleanup, no
-  // re-indexing. Seed once first (run any runner without the flag), then re-run
-  // the read-only runners with REUSE_DB=1.
-  const reuse = opts.reuse ?? process.env.REUSE_DB === "1";
-
-  if (!reuse) {
-    await cleanupDb();
-  }
+  // Seed labels: create (or reuse) each gate with its classes.
+  await cleanupDb();
   const apiKey = await ensureEvalApiKey();
 
-  const embedder = opts.indexEmbeddings
-    ? makeEmbedClient(
-        opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
-        opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
-      )
-    : undefined;
-
-  if (opts.indexEmbeddings && !reuse) {
+  if (opts.indexEmbeddings) {
+    const embedder = makeEmbedClient(
+      opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
+      opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
+    );
     let total = 0;
     for (const config of configs) {
       const gate = await getOrCreateGate(apiKey.tenantId, config);
@@ -389,7 +376,7 @@ export async function initDbAndSeedAll(
             label: cls.label,
             content: utterance,
             source: "config",
-            embedding: await embedder!.embed(utterance),
+            embedding: await embedder.embed(utterance),
           });
         }
       }
@@ -400,20 +387,14 @@ export async function initDbAndSeedAll(
       );
     }
     console.log(`Indexed ${total} embeddings across ${configs.length} gate(s).`);
-    return { tenantId: apiKey.tenantId, embed: embedder!.embed };
+    return { tenantId: apiKey.tenantId, embed: embedder.embed };
   }
 
   for (const config of configs) {
     const gate = await getOrCreateGate(apiKey.tenantId, config);
     if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
   }
-
-  if (reuse) {
-    console.log(
-      `Reusing seeded gates/embeddings (REUSE_DB=1) — skipped cleanup and re-indexing.`,
-    );
-  }
-  return { tenantId: apiKey.tenantId, embed: embedder?.embed };
+  return { tenantId: apiKey.tenantId };
 }
 
 const EVAL_API_KEY_NAME = "eval";
@@ -528,10 +509,10 @@ export interface PreCascadePrompt {
   truth: string;
   predicted: string;
   correct: boolean;
+  margin: number;
+  entropy: number;
   cascade: boolean;
   scores: Record<string, number>;
-  /** Confidence of the pre-cascade decision (0 when it would cascade). */
-  confScore: number;
   kw: PreCascadeConfidence;
   sem: PreCascadeConfidence;
   latencyMs: number;

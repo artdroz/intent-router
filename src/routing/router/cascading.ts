@@ -185,14 +185,10 @@ export type PrecascadeDecision = {
 };
 
 /**
- * Combine the keyword and semantic deferral votes. Semantic is the primary
- * gate: a single confident semantic classifier is trusted even when the
- * keyword argmax disagrees, while keyword is advisory and is trusted alone
- * only when semantic has no signal or its argmax agrees.
+ * Combine the keyword and semantic deferral votes:
  *   both confident + agree    → use blended label
  *   both confident + disagree → cascade (contradiction)
- *   one confident + agree     → use that classifier's label
- *   one confident + disagree  → semantic: use it · keyword: cascade
+ *   exactly one confident     → use that classifier's label
  *   neither confident         → cascade
  */
 export function resolvePrecascade(
@@ -230,27 +226,23 @@ export function resolvePrecascade(
     };
   }
 
-  // Semantic is the primary gate: trusted whenever confident, even if the
-  // keyword argmax disagrees.
-  if (semConfident && semLabel !== null) {
-    return {
-      cascade: false,
-      label: semLabel,
-      score: semTop?.[1].prob ?? 0,
-      confScore: semResult.confScore,
-      scores: entriesToScores(semResult.entries),
-    };
-  }
-
-  // Keyword is advisory: trusted alone only when semantic has no signal or
-  // its argmax agrees.
-  if (kwConfident && kwLabel !== null && (semLabel === null || kwLabel === semLabel)) {
+  if (kwConfident) {
     return {
       cascade: false,
       label: kwLabel,
       score: kwTop?.[1].prob ?? 0,
       confScore: kwResult.confScore,
       scores: entriesToScores(kwResult.entries),
+    };
+  }
+
+  if (semConfident) {
+    return {
+      cascade: false,
+      label: semLabel,
+      score: semTop?.[1].prob ?? 0,
+      confScore: semResult.confScore,
+      scores: entriesToScores(semResult.entries),
     };
   }
 

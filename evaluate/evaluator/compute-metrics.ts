@@ -13,7 +13,7 @@
  *
  *   --stage       classifier | pre-cascade | three-tier | router | all (required)
  *   --dataset     k8,cpython,vscode (comma-separated, required)
- *   --label-field adaptive_label,complexity_label (comma-separated, default: adaptive_label)
+ *   --label-field adaptive_label | complexity_label (default: adaptive_label)
  *   --split       val,test (comma-separated, omit to read all unsplit + split files)
  *
  * Output: metrics/{stage}/{dataset}/{gate}/{classifierOrParam}.json
@@ -35,7 +35,6 @@ import {
   type ThreeTierPrompt,
   ensureDir,
   gateNameFor,
-  resolveLabelFields,
 } from "./runner/shared.js";
 import { RUNS_DIR, METRICS_DIR, DEFAULT_W_ERROR, DEFAULT_W_CAS } from "./config.js";
 
@@ -61,7 +60,7 @@ interface ClassifierMetrics {
 
 interface PreCascadeMetrics {
   dataset: string;
-  params: { kwWeight: number; semWeight: number };
+  params: { margin: number; entropy: number; kwWeight: number; semWeight: number };
   promptCount: number;
   accuracy: number;
   cascadeRate: number;
@@ -69,13 +68,14 @@ interface PreCascadeMetrics {
   cascadePrecision: number;
   cost: number;
   regretCascadeRate: number;
-  ece: number;
-  avgConfidenceCorrect: number;
-  avgConfidenceIncorrect: number;
   kwAvgConfidenceCorrect: number;
   kwAvgConfidenceIncorrect: number;
   semAvgConfidenceCorrect: number;
   semAvgConfidenceIncorrect: number;
+  marginP50: number;
+  marginP90: number;
+  entropyP50: number;
+  entropyP90: number;
   perClass: Record<string, { total: number; correct: number; accuracy: number }>;
 }
 
@@ -128,7 +128,7 @@ function parseArgs() {
     stage: raw.stage as string,
     dataset: raw.dataset,
     split: raw.split,
-    raw,
+    labelField: raw["label-field"],
   };
 }
 
@@ -137,7 +137,7 @@ const ALL_STAGES = ["classifier", "pre-cascade", "three-tier", "router"] as cons
 // ── Main ──
 
 async function main() {
-  const { stage, dataset, split, raw } = parseArgs();
+  const { stage, dataset, split, labelField } = parseArgs();
 
   if (!dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -150,7 +150,7 @@ async function main() {
     process.exit(1);
   }
 
-  const labelFields = resolveLabelFields(raw);
+  const gateName = gateNameFor(labelField || "adaptive_label");
 
   const stages: readonly string[] = stage === "all"
     ? ALL_STAGES
@@ -162,32 +162,26 @@ async function main() {
     : [undefined];
 
   const splitLabel = splits.map((s) => s ?? "-").join(",");
+  console.log(`Computing metrics | datasets: ${datasets.join(", ")} | gate: ${gateName} | splits: ${splitLabel}`);
 
-  for (const labelField of labelFields) {
-    const gateName = gateNameFor(labelField);
-    console.log(
-      `Computing metrics | label field: ${labelField} | gate: ${gateName} | datasets: ${datasets.join(", ")} | splits: ${splitLabel}`,
-    );
+  for (const st of stages) {
+    for (const ds of datasets) {
+      ensureDir(join(METRICS_DIR, st, ds, gateName));
 
-    for (const st of stages) {
-      for (const ds of datasets) {
-        ensureDir(join(METRICS_DIR, st, ds, gateName));
-
-        for (const sp of splits) {
-          switch (st) {
-            case "classifier":
-              handleClassifier(ds, sp, gateName);
-              break;
-            case "pre-cascade":
-              handlePreCascade(ds, sp, gateName);
-              break;
-            case "three-tier":
-              handleThreeTier(ds, sp, gateName);
-              break;
-            case "router":
-              handleRouter(ds, sp, gateName);
-              break;
-          }
+      for (const sp of splits) {
+        switch (st) {
+          case "classifier":
+            handleClassifier(ds, sp, gateName);
+            break;
+          case "pre-cascade":
+            handlePreCascade(ds, sp, gateName);
+            break;
+          case "three-tier":
+            handleThreeTier(ds, sp, gateName);
+            break;
+          case "router":
+            handleRouter(ds, sp, gateName);
+            break;
         }
       }
     }
@@ -333,32 +327,24 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
     const semAvgConfCorrect = meanConfidence(prompts, true, "sem");
     const semAvgConfIncorrect = meanConfidence(prompts, false, "sem");
 
-    // Overall pre-cascade confidence separation (decision confScore).
-    const correctPrompts = prompts.filter((p) => p.correct);
-    const incorrectPrompts = prompts.filter((p) => !p.correct);
-    const avgConfCorrect =
-      correctPrompts.length > 0
-        ? correctPrompts.reduce((s, p) => s + p.confScore, 0) /
-          correctPrompts.length
-        : 0;
-    const avgConfIncorrect =
-      incorrectPrompts.length > 0
-        ? incorrectPrompts.reduce((s, p) => s + p.confScore, 0) /
-          incorrectPrompts.length
-        : 0;
+    // Margin/entropy distribution
+    const margins = prompts.map((p) => p.margin).sort((a, b) => a - b);
+    const entropies = prompts.map((p) => p.entropy).sort((a, b) => a - b);
 
-    // Parse params from filename: kw{0.3}_sem{0.7}.jsonl or .{split}.jsonl
+    // Parse params from filename: m{0.3}_H{1.3}_kw{0.3}_sem{0.7}.jsonl or .{split}.jsonl
     const base = basename(file, ".jsonl");
     const paramStr = split ? base.replace(new RegExp(`\\.${split}$`), "") : base;
     const paramMatch = paramStr.match(
-      /^kw([\d.]+)_sem([\d.]+)$/,
+      /^m([\d.]+)_H([\d.]+)_kw([\d.]+)_sem([\d.]+)$/,
     );
     const params = paramMatch
       ? {
-          kwWeight: parseFloat(paramMatch[1]),
-          semWeight: parseFloat(paramMatch[2]),
+          margin: parseFloat(paramMatch[1]),
+          entropy: parseFloat(paramMatch[2]),
+          kwWeight: parseFloat(paramMatch[3]),
+          semWeight: parseFloat(paramMatch[4]),
         }
-      : { kwWeight: 0, semWeight: 0 };
+      : { margin: 0, entropy: 0, kwWeight: 0, semWeight: 0 };
 
     const metrics: PreCascadeMetrics = {
       dataset,
@@ -370,13 +356,14 @@ function handlePreCascade(dataset: string, split: string | undefined, gateName: 
       cascadePrecision: round(cascadePrecision),
       cost: round(cost),
       regretCascadeRate: round(regretCascadeRate),
-      ece: round(computeECE(prompts)),
-      avgConfidenceCorrect: round(avgConfCorrect),
-      avgConfidenceIncorrect: round(avgConfIncorrect),
       kwAvgConfidenceCorrect: round(kwAvgConfCorrect),
       kwAvgConfidenceIncorrect: round(kwAvgConfIncorrect),
       semAvgConfidenceCorrect: round(semAvgConfCorrect),
       semAvgConfidenceIncorrect: round(semAvgConfIncorrect),
+      marginP50: round(margins[Math.floor(margins.length * 0.5)] ?? 0),
+      marginP90: round(margins[Math.floor(margins.length * 0.9)] ?? 0),
+      entropyP50: round(entropies[Math.floor(entropies.length * 0.5)] ?? 0),
+      entropyP90: round(entropies[Math.floor(entropies.length * 0.9)] ?? 0),
       perClass: buildPerClass(prompts),
     };
 
@@ -617,10 +604,7 @@ function matchSplit(filename: string, split?: string): boolean {
   return !knownSplits.some((s) => filename.endsWith(`.${s}.jsonl`));
 }
 
-function computeECE(
-  prompts: Array<{ scores: Record<string, number>; correct: boolean }>,
-  bins: number = 10,
-): number {
+function computeECE(prompts: ClassifierPrompt[], bins: number = 10): number {
   if (prompts.length === 0) return 0;
 
   // Sort by confidence and partition into equal-mass bins
