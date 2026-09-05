@@ -36,13 +36,6 @@
       "when": 1788370943539,
       "tag": "0004_white_starjammers",
       "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1788547016018,
-      "tag": "0005_graceful_blizzard",
-      "breakpoints": true
     }
   ]
 }

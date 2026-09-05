@@ -18,7 +18,7 @@
  *     --dataset k8,cpython,vscode --split val,test --label-field adaptive_label
  *
  *   --dataset           k8,cpython,vscode (comma-separated, required)
- *   --label-field       adaptive_label, complexity_label (comma-separated, default: adaptive_label)
+ *   --label-field       adaptive_label | complexity_label (default: adaptive_label)
  *   --split             val,test (comma-separated, omit for unsplit)
  *   --verbose           true | false
  *   --limit             max prompts per combo
@@ -53,7 +53,7 @@ import {
   makeEmbedClient,
   printPerClassSummary,
   parseBaseArgs,
-  resolveLabelFields,
+  resolveLabelField,
   writeRun,
   type ThreeTierPrompt,
 } from "./shared.js";
@@ -98,7 +98,7 @@ function sortEntries(entries: Map<string, ClassificationEntry>): [string, Classi
 
 async function main() {
   const raw = parseBaseArgs();
-  const labelFields = resolveLabelFields(raw);
+  const labelField = resolveLabelField(raw);
 
   if (!raw.dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -119,6 +119,16 @@ async function main() {
   const embeddingUrl = raw["embedding-url"] ?? DEFAULT_EMBEDDING_URL;
   const embeddingModel = raw["embedding-model"] ?? DEFAULT_EMBEDDING_MODEL;
 
+  // All datasets share one taxonomy config per label field (e.g. request_type),
+  // so a single seed indexes the shared gate + utterance embeddings.
+  const seedConfig = loadConfig(datasets[0], labelField);
+  const ctx = await initDbAndSeed(seedConfig, {
+    indexEmbeddings: true,
+    embeddingUrl,
+    embeddingModel,
+  });
+  const tenantId = ctx.tenantId;
+
   const embedClient = makeEmbedClient(embeddingUrl, embeddingModel);
   const keyword = new KeywordClassifier();
   const semantic = new SemanticClassifier(embedClient);
@@ -128,128 +138,114 @@ async function main() {
   );
   console.log(`Margin: ${margin}  |  Entropy: ${entropyThreshold}  |  keyword → semantic → (LLM)`);
 
-  for (const labelField of labelFields) {
-    console.log(`\nLabel field: ${labelField}`);
+  const allResults: ThreeTierPrompt[] = [];
 
-    // All datasets share one taxonomy config per label field (e.g. request_type),
-    // so a single seed indexes the shared gate + utterance embeddings.
-    const seedConfig = loadConfig(datasets[0], labelField);
-    const ctx = await initDbAndSeed(seedConfig, {
-      indexEmbeddings: true,
-      embeddingUrl,
-      embeddingModel,
-    });
-    const tenantId = ctx.tenantId;
+  for (const ds of datasets) {
+    const config = loadConfig(ds, labelField);
+    const gate = buildGate(config);
 
-    const allResults: ThreeTierPrompt[] = [];
+    for (const split of splits) {
+      const rows = loadDataset(ds, split, labelField);
 
-    for (const ds of datasets) {
-      const config = loadConfig(ds, labelField);
-      const gate = buildGate(config);
+      console.log(
+        `\nGate: ${gate.name}  |  three-tier (no LLM)  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
+      );
+      console.log("─".repeat(80));
 
-      for (const split of splits) {
-        const rows = loadDataset(ds, split, labelField);
+      const comboResults: ThreeTierPrompt[] = [];
+      for (const row of rows) {
+        if (limit && comboResults.length >= limit) break;
 
-        console.log(
-          `\nGate: ${gate.name}  |  three-tier (no LLM)  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
-        );
-        console.log("─".repeat(80));
+        const kwT0 = performance.now();
+        const kwResult: ClassificationResult = await keyword.classify(row.prompt, gate, tenantId);
+        const kwLatencyMs = Math.round(performance.now() - kwT0);
 
-        const comboResults: ThreeTierPrompt[] = [];
-        for (const row of rows) {
-          if (limit && comboResults.length >= limit) break;
+        const semT0 = performance.now();
+        const semResult: ClassificationResult = await semantic.classify(row.prompt, gate, tenantId);
+        const semLatencyMs = Math.round(performance.now() - semT0);
 
-          const kwT0 = performance.now();
-          const kwResult: ClassificationResult = await keyword.classify(row.prompt, gate, tenantId);
-          const kwLatencyMs = Math.round(performance.now() - kwT0);
+        const kwEntries = ensureAllClasses(kwResult.entries, gate);
+        const semEntries = ensureAllClasses(semResult.entries, gate);
 
-          const semT0 = performance.now();
-          const semResult: ClassificationResult = await semantic.classify(row.prompt, gate, tenantId);
-          const semLatencyMs = Math.round(performance.now() - semT0);
+        const sortedKw = sortEntries(kwEntries);
+        const sortedSem = sortEntries(semEntries);
 
-          const kwEntries = ensureAllClasses(kwResult.entries, gate);
-          const semEntries = ensureAllClasses(semResult.entries, gate);
+        const kwMargin = computeRelativeMargin(sortedKw);
+        const kwEntropy = computeEntropy(sortedKw);
+        const semMargin = computeRelativeMargin(sortedSem);
+        const semEntropy = computeEntropy(sortedSem);
 
-          const sortedKw = sortEntries(kwEntries);
-          const sortedSem = sortEntries(semEntries);
+        const kwConfident = kwMargin >= margin && kwEntropy <= entropyThreshold;
+        const semConfident = semMargin >= margin && semEntropy <= entropyThreshold;
 
-          const kwMargin = computeRelativeMargin(sortedKw);
-          const kwEntropy = computeEntropy(sortedKw);
-          const semMargin = computeRelativeMargin(sortedSem);
-          const semEntropy = computeEntropy(sortedSem);
+        let stage: ThreeTierPrompt["stage"];
+        let predicted: string;
+        let finalMargin: number;
+        let finalEntropy: number;
+        let cascade = false;
 
-          const kwConfident = kwMargin >= margin && kwEntropy <= entropyThreshold;
-          const semConfident = semMargin >= margin && semEntropy <= entropyThreshold;
-
-          let stage: ThreeTierPrompt["stage"];
-          let predicted: string;
-          let finalMargin: number;
-          let finalEntropy: number;
-          let cascade = false;
-
-          if (kwConfident) {
-            stage = "keyword";
-            predicted = sortedKw[0][0];
-            finalMargin = kwMargin;
-            finalEntropy = kwEntropy;
-          } else if (semConfident) {
-            stage = "semantic";
-            predicted = sortedSem[0][0];
-            finalMargin = semMargin;
-            finalEntropy = semEntropy;
-          } else {
-            stage = "cascade";
-            cascade = true;
-            // Best pre-cascade guess available before deferring to the LLM.
-            predicted = sortedSem[0][0];
-            finalMargin = semMargin;
-            finalEntropy = semEntropy;
-          }
-
-          const finalEntries = stage === "keyword" ? kwEntries : semEntries;
-          const latencyMs = stage === "keyword" ? kwLatencyMs : kwLatencyMs + semLatencyMs;
-
-          const record: ThreeTierPrompt = {
-            id: row.id,
-            truth: row.label,
-            predicted,
-            correct: predicted === row.label,
-            cascade,
-            stage,
-            margin: finalMargin,
-            entropy: finalEntropy,
-            kwMargin,
-            kwEntropy,
-            semMargin,
-            semEntropy,
-            scores: entriesToScores(finalEntries),
-            kwScores: entriesToScores(kwEntries),
-            semScores: entriesToScores(semEntries),
-            kwEvidence: entriesToEvidence(kwEntries),
-            semEvidence: entriesToEvidence(semEntries),
-            latencyMs,
-            kwLatencyMs,
-            semLatencyMs,
-          };
-
-          comboResults.push(record);
-          printResult(record, verbose);
+        if (kwConfident) {
+          stage = "keyword";
+          predicted = sortedKw[0][0];
+          finalMargin = kwMargin;
+          finalEntropy = kwEntropy;
+        } else if (semConfident) {
+          stage = "semantic";
+          predicted = sortedSem[0][0];
+          finalMargin = semMargin;
+          finalEntropy = semEntropy;
+        } else {
+          stage = "cascade";
+          cascade = true;
+          // Best pre-cascade guess available before deferring to the LLM.
+          predicted = sortedSem[0][0];
+          finalMargin = semMargin;
+          finalEntropy = semEntropy;
         }
 
-        allResults.push(...comboResults);
+        const finalEntries = stage === "keyword" ? kwEntries : semEntries;
+        const latencyMs = stage === "keyword" ? kwLatencyMs : kwLatencyMs + semLatencyMs;
 
-        const paramTag = `m${margin}_H${entropyThreshold}`;
-        const splitSuffix = split ? `.${split}` : "";
-        const outPath = writeRun(
-          `${ds}/${gate.name}/three-tier/${paramTag}${splitSuffix}.jsonl`,
-          comboResults,
-        );
-        console.log(`Run → ${outPath}`);
+        const record: ThreeTierPrompt = {
+          id: row.id,
+          truth: row.label,
+          predicted,
+          correct: predicted === row.label,
+          cascade,
+          stage,
+          margin: finalMargin,
+          entropy: finalEntropy,
+          kwMargin,
+          kwEntropy,
+          semMargin,
+          semEntropy,
+          scores: entriesToScores(finalEntries),
+          kwScores: entriesToScores(kwEntries),
+          semScores: entriesToScores(semEntries),
+          kwEvidence: entriesToEvidence(kwEntries),
+          semEvidence: entriesToEvidence(semEntries),
+          latencyMs,
+          kwLatencyMs,
+          semLatencyMs,
+        };
+
+        comboResults.push(record);
+        printResult(record, verbose);
       }
-    }
 
-    printSummary(allResults);
+      allResults.push(...comboResults);
+
+      const paramTag = `m${margin}_H${entropyThreshold}`;
+      const splitSuffix = split ? `.${split}` : "";
+      const outPath = writeRun(
+        `${ds}/${gate.name}/three-tier/${paramTag}${splitSuffix}.jsonl`,
+        comboResults,
+      );
+      console.log(`Run → ${outPath}`);
+    }
   }
+
+  printSummary(allResults);
 }
 
 // ── Output ──

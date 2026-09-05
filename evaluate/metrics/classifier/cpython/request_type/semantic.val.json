@@ -1,0 +1,18 @@
+{
+  "dataset": "cpython",
+  "classifier": "semantic",
+  "promptCount": 1,
+  "accuracy": 0,
+  "macroAccuracy": 0,
+  "ece": 0.3119,
+  "avgConfidenceCorrect": 0,
+  "avgConfidenceIncorrect": 0.3119,
+  "avgLatencyMs": 396,
+  "perClass": {
+    "general": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

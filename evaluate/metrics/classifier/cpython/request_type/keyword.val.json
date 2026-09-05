@@ -1,0 +1,18 @@
+{
+  "dataset": "cpython",
+  "classifier": "keyword",
+  "promptCount": 1,
+  "accuracy": 0,
+  "macroAccuracy": 0,
+  "ece": 1,
+  "avgConfidenceCorrect": 0,
+  "avgConfidenceIncorrect": 1,
+  "avgLatencyMs": 3,
+  "perClass": {
+    "general": {
+      "total": 1,
+      "correct": 0,
+      "accuracy": 0
+    }
+  }
+}

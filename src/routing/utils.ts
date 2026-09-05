@@ -18,22 +18,6 @@ export function buildResult(
   return entries;
 }
 
-/**
- * Combined confidence from two hard constraints: absolute strength and margin.
- * Uses `min`, so both must clear their threshold to reach `>= 1` (confident).
- * A threshold of 0 disables that constraint.
- */
-export function computeConfidence(
-  strength: number,
-  strengthThreshold: number,
-  margin: number,
-  marginThreshold: number,
-): number {
-  const s = strengthThreshold > 0 ? strength / strengthThreshold : Number.POSITIVE_INFINITY;
-  const m = marginThreshold > 0 ? margin / marginThreshold : Number.POSITIVE_INFINITY;
-  return Math.min(s, m);
-}
-
 /** Difference in probability between the top two candidates. */
 export function computeMargin(sorted: [string, ClassificationEntry][]): number {
   const top1 = sorted[0];

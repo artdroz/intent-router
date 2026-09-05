@@ -186,7 +186,6 @@ export const routingEvents = pgTable(
     }),
     stage: text("stage").notNull(), // 'keyword' | 'semantic' | 'llm'
     scores: jsonb("scores").notNull(), // { label: score, ... }
-    confScore: real("conf_score").notNull().default(1), // winning path confidence (>= 1 ⇒ confident)
     channel: text("channel").notNull().default("rest"), // 'rest' | 'litellm'
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },

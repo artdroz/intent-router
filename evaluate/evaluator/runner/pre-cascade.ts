@@ -30,7 +30,7 @@
  */
 import { KeywordClassifier } from "../../../src/routing/classifiers/keyword.js";
 import { SemanticClassifier } from "../../../src/routing/classifiers/semantic.js";
-import { CascadingRouter, resolvePrecascade } from "../../../src/routing/router/cascading.js";
+import { CascadingRouter, shouldCascade } from "../../../src/routing/router/cascading.js";
 import { computeRelativeMargin, computeEntropy } from "../../../src/routing/utils.js";
 
 import {
@@ -42,10 +42,9 @@ import {
   makeEmbedClient,
   printPerClassSummary,
   parseBaseArgs,
-  resolveLabelFields,
+  resolveLabelField,
   writeRun,
   type PreCascadePrompt,
-  type PreCascadeConfidence,
 } from "./shared.js";
 import {
   DEFAULT_EMBEDDING_URL,
@@ -69,24 +68,14 @@ interface PreEvalResult {
   scores: Record<string, number>;
   kwScores: Record<string, number>;
   semScores: Record<string, number>;
-  kw: PreCascadeConfidence;
-  sem: PreCascadeConfidence;
   durationMs: number;
-}
-
-/** Top label of a classifier's probability distribution (or null when empty). */
-function topLabelOf(
-  entries: Map<string, { prob: number }>,
-): string | null {
-  const sorted = [...entries.entries()].sort((a, b) => b[1].prob - a[1].prob);
-  return sorted[0]?.[0] ?? null;
 }
 
 // ── Main ──
 
 async function main() {
   const raw = parseBaseArgs();
-  const labelFields = resolveLabelFields(raw);
+  const labelField = resolveLabelField(raw);
 
   if (!raw.dataset) {
     console.error("Error: --dataset is required (comma-separated for multiple)");
@@ -109,8 +98,20 @@ async function main() {
   const embeddingUrl = raw["embedding-url"] ?? DEFAULT_EMBEDDING_URL;
   const embeddingModel = raw["embedding-model"] ?? DEFAULT_EMBEDDING_MODEL;
 
-  // Build classifiers + router once (label-agnostic; LLM not needed for pre-classify)
+  // Seed all datasets
   const embedClient = makeEmbedClient(embeddingUrl, embeddingModel);
+  let tenantId = "";
+  for (const ds of datasets) {
+    const config = loadConfig(ds, labelField);
+    const ctx = await initDbAndSeed(config, {
+      indexEmbeddings: true,
+      embeddingUrl,
+      embeddingModel,
+    });
+    tenantId = ctx.tenantId;
+  }
+
+  // Build classifiers + router (LLM classifier not needed for pre-classify)
   const keyword = new KeywordClassifier();
   const semantic = new SemanticClassifier(embedClient);
 
@@ -134,108 +135,78 @@ async function main() {
     `Margin: ${margin}  |  Entropy: ${entropyThreshold}  |  KW: ${kwWeight}  |  SEM: ${semWeight}`,
   );
 
-  for (const labelField of labelFields) {
-    console.log(`\nLabel field: ${labelField}`);
+  // Evaluate each dataset × split combination
+  const allResults: PreEvalResult[] = [];
 
-    // Seed once per label taxonomy (all datasets share the same gate config).
-    const config = loadConfig(datasets[0], labelField);
-    const ctx = await initDbAndSeed(config, {
-      indexEmbeddings: true,
-      embeddingUrl,
-      embeddingModel,
-    });
-    const tenantId = ctx.tenantId;
+  for (const ds of datasets) {
+    const config = loadConfig(ds, labelField);
+    const gate = buildGate(config);
 
-    // Evaluate each dataset × split combination
-    const allResults: PreEvalResult[] = [];
+    for (const split of splits) {
+      const rows = loadDataset(ds, split, labelField);
 
-    for (const ds of datasets) {
-      const config = loadConfig(ds, labelField);
-      const gate = buildGate(config);
+      console.log(
+        `\nGate: ${gate.name}  |  pre-cascade (no LLM)  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
+      );
+      console.log("─".repeat(80));
 
-      for (const split of splits) {
-        const rows = loadDataset(ds, split, labelField);
+      const comboResults: PreEvalResult[] = [];
+      for (const row of rows) {
+        if (limit && comboResults.length >= limit) break;
 
-        console.log(
-          `\nGate: ${gate.name}  |  pre-cascade (no LLM)  |  Split: ${split ?? "-"}  |  Prompts: ${rows.length}`,
-        );
-        console.log("─".repeat(80));
+        const t0 = performance.now();
+        const pre = await router.runPrecascade(row.prompt, gate, tenantId);
+        const durationMs = Math.round(performance.now() - t0);
+        const preMargin = computeRelativeMargin(pre.sorted);
+        const preEntropy = computeEntropy(pre.sorted);
+        const wouldCascade = shouldCascade(pre.sorted, pre.kwResult, pre.semResult, margin, entropyThreshold);
+        const correct = pre.result.label === row.label;
 
-        const comboResults: PreEvalResult[] = [];
-        for (const row of rows) {
-          if (limit && comboResults.length >= limit) break;
+        const kwScores: Record<string, number> = {};
+        for (const [label, entry] of pre.kwResult.entries) kwScores[label] = entry.prob;
+        const semScores: Record<string, number> = {};
+        for (const [label, entry] of pre.semResult.entries) semScores[label] = entry.prob;
 
-          const t0 = performance.now();
-          const pre = await router.runPrecascade(row.prompt, gate, tenantId);
-          const durationMs = Math.round(performance.now() - t0);
-          const preMargin = computeRelativeMargin(pre.sorted);
-          const preEntropy = computeEntropy(pre.sorted);
-          const decision = resolvePrecascade(pre.kwResult, pre.semResult, gate, kwWeight, semWeight);
-          const wouldCascade = decision.cascade;
-          const predicted = decision.label ?? pre.result.label;
-          const correct = predicted === row.label;
+        comboResults.push({
+          id: row.id,
+          truth: row.label,
+          predicted: pre.result.label,
+          correct,
+          margin: preMargin,
+          entropy: preEntropy,
+          wouldCascade: wouldCascade,
+          scores: pre.result.scores,
+          kwScores,
+          semScores,
+          durationMs,
+        });
 
-          const kwScores: Record<string, number> = {};
-          for (const [label, entry] of pre.kwResult.entries) kwScores[label] = entry.prob;
-          const semScores: Record<string, number> = {};
-          for (const [label, entry] of pre.semResult.entries) semScores[label] = entry.prob;
-
-          const kwTop = topLabelOf(pre.kwResult.entries);
-          const semTop = topLabelOf(pre.semResult.entries);
-
-          comboResults.push({
-            id: row.id,
-            truth: row.label,
-            predicted,
-            correct,
-            margin: preMargin,
-            entropy: preEntropy,
-            wouldCascade: wouldCascade,
-            scores: decision.scores,
-            kwScores,
-            semScores,
-            kw: {
-              confScore: pre.kwResult.confScore,
-              isConfident: pre.kwResult.isConfident,
-              label: kwTop,
-            },
-            sem: {
-              confScore: pre.semResult.confScore,
-              isConfident: pre.semResult.isConfident,
-              label: semTop,
-            },
-            durationMs,
-          });
-
-          printResult(comboResults[comboResults.length - 1], verbose);
-        }
-
-        allResults.push(...comboResults);
-
-        // Write per-combo raw results
-        const paramTag = `m${margin}_H${entropyThreshold}_kw${kwWeight}_sem${semWeight}`;
-        const splitSuffix = split ? `.${split}` : "";
-        writeRun(
-          `${ds}/${gate.name}/pre-cascade/${paramTag}${splitSuffix}.jsonl`,
-          comboResults.map((r): PreCascadePrompt => ({
-            id: r.id,
-            truth: r.truth,
-            predicted: r.predicted,
-            correct: r.correct,
-            margin: r.margin,
-            entropy: r.entropy,
-            cascade: r.wouldCascade,
-            scores: r.scores,
-            kw: r.kw,
-            sem: r.sem,
-            latencyMs: r.durationMs,
-          })),
-        );
+        printResult(comboResults[comboResults.length - 1], verbose);
       }
-    }
 
-    printSummary(allResults);
+      allResults.push(...comboResults);
+
+      // Write per-combo raw results
+      const paramTag = `m${margin}_H${entropyThreshold}_kw${kwWeight}_sem${semWeight}`;
+      const splitSuffix = split ? `.${split}` : "";
+      writeRun(
+        `${ds}/${gate.name}/pre-cascade/${paramTag}${splitSuffix}.jsonl`,
+        comboResults.map((r): PreCascadePrompt => ({
+          id: r.id,
+          truth: r.truth,
+          predicted: r.predicted,
+          correct: r.correct,
+          margin: r.margin,
+          entropy: r.entropy,
+          cascade: r.wouldCascade,
+          scores: r.scores,
+          latencyMs: r.durationMs,
+        })),
+      );
+    }
   }
+
+  printSummary(allResults);
 }
 
 // ── Output ──

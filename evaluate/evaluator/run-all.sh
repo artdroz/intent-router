@@ -98,8 +98,8 @@ for LF in "${LABEL_FIELDS[@]}"; do
     --kw-weight "$KW_WEIGHT" --sem-weight "$SEM_WEIGHT" \
     --embedding-url "$EMBED_URL" --embedding-model "$EMBED_MODEL"
 
-  step "2.5 — classifier threshold tuning (informational, on val split)"
-  npx tsx "$RUNNER/tune-classifier-thresholds.ts" --classifier all --dataset "$DATASETS" --label-field "$LF"
+  step "2.5 — threshold tuning (informational, on val split)"
+  npx tsx "$RUNNER/tune-thresholds.ts" --dataset "$DATASETS" --label-field "$LF"
 
   step "3/5 — router (cascade with LLM fallback)"
   npx tsx "$RUNNER/router.ts" --dataset "$DATASETS" --split "$SPLITS" \

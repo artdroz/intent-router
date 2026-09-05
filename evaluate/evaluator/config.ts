@@ -58,7 +58,6 @@ export const DEFAULT_SEM_WEIGHT = 0.7;
 
 // ── Threshold tuning defaults ──
 export const DEFAULT_W_ERROR = 1.0;
-export const DEFAULT_W_CAS = 1.0;
 export const DEFAULT_W_DOUBT = 2.0;
 export const DEFAULT_SWEEP_MARGIN_MIN = 0;
 export const DEFAULT_SWEEP_MARGIN_MAX = 1.0;

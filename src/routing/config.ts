@@ -1,24 +1,12 @@
+// Keyword classifier
+export const KW_CONFIG_WEIGHT = 2.0;
+export const KW_FEEDBACK_WEIGHT = 1.0;
+
 // Semantic classifier
 export const SEM_TOP_K = 20;
 export const SEM_SIMILARITY_THRESHOLD = 0.25;
 export const SEM_CONFIG_WEIGHT = 2.0;
 export const SEM_FEEDBACK_WEIGHT = 1.0;
-
-// Keyword classifier confidence gate (gating happens inside the classifier)
-/** Minimum total keyword-hit count before the keyword classifier is confident. */
-export const KW_CONF_COUNT_THRESHOLD = 1;
-/** Minimum class-score margin before the keyword classifier is confident. */
-export const KW_CONF_MARGIN_THRESHOLD = 0.1;
-/** Bonus per promoted-keyword hit in the class-score formula (bounded by min(1, ·)). */
-export const KW_FEEDBACK_BETA = 0.05;
-
-// Semantic classifier confidence gate
-/** Minimum mean top-K similarity score before the semantic classifier is confident. */
-export const SEM_CONF_SCORE_THRESHOLD = 0.5;
-/** Minimum score margin before the semantic classifier is confident. */
-export const SEM_CONF_MARGIN_THRESHOLD = 0.2;
-/** Number of top similarities averaged per class (mean of top-K). */
-export const SEM_CONF_TOP_K = 3;
 
 // Cascade classifier
 export const CAS_KW_WEIGHT = 0.3;

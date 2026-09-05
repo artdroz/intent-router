@@ -5,9 +5,11 @@ import type {
   ClassificationResult,
   ClassificationEntry,
 } from "../classifiers/types.js";
-import { buildResult, pickBestLabel } from "../utils.js";
+import { buildResult, computeRelativeMargin, computeEntropy, pickBestLabel } from "../utils.js";
 import {
+  CAS_ENTROPY_THRESHOLD,
   CAS_KW_WEIGHT,
+  CAS_MARGIN_THRESHOLD,
   CAS_SEM_WEIGHT,
   LLM_MAX_ATTEMPTS,
 } from "../config.js";
@@ -17,6 +19,8 @@ export class CascadingRouter implements Router {
 
   private readonly kwWeight: number;
   private readonly semWeight: number;
+  private readonly marginThreshold: number;
+  private readonly entropyThreshold: number;
 
   constructor(
     private keyword: Classifier,
@@ -28,6 +32,8 @@ export class CascadingRouter implements Router {
   ) {
     this.kwWeight = this.options.kwWeight ?? CAS_KW_WEIGHT;
     this.semWeight = this.options.semWeight ?? CAS_SEM_WEIGHT;
+    this.marginThreshold = this.options.marginThreshold ?? CAS_MARGIN_THRESHOLD;
+    this.entropyThreshold = this.options.entropyThreshold ?? CAS_ENTROPY_THRESHOLD;
   }
 
   async route(prompt: string, gate: Gate, tenantId: string): Promise<RouteResult> {
@@ -37,30 +43,19 @@ export class CascadingRouter implements Router {
       return this.runLlmFallback(prompt, gate, null, tenantId);
     }
 
-    const { kwResult, semResult } = await this.runPrecascade(prompt, gate, tenantId);
-    const decision = resolvePrecascade(kwResult, semResult, gate, this.kwWeight, this.semWeight);
+    const {
+      result: preCascadeResult,
+      kwResult: kwResults,
+      semResult: semResults,
+      sorted: aggregatedResults,
+    } = await this.runPrecascade(prompt, gate, tenantId);
 
-    if (decision.cascade) {
-      const fallback: RouteResult | null =
-        decision.label !== null
-          ? {
-              label: decision.label,
-              score: decision.score,
-              stage: "pre-cascade",
-              scores: decision.scores,
-              confScore: decision.confScore,
-            }
-          : null;
-      return this.runLlmFallback(prompt, gate, fallback, tenantId);
+    if (!shouldCascade(aggregatedResults, kwResults, semResults, this.marginThreshold, this.entropyThreshold)) {
+      return preCascadeResult;
     }
 
-    return {
-      label: decision.label!,
-      score: decision.score,
-      stage: "pre-cascade",
-      scores: decision.scores,
-      confScore: decision.confScore,
-    };
+    // Low confidence — fall back to LLM
+    return this.runLlmFallback(prompt, gate, preCascadeResult, tenantId);
   }
 
   async runPrecascade(
@@ -71,18 +66,8 @@ export class CascadingRouter implements Router {
     const useKeyword = hasConfiguredKeywords(gate);
     const useSemantic = hasConfiguredUtterances(gate);
     let aggregated: Map<string, ClassificationEntry>;
-    let kwResult: ClassificationResult = {
-      classifier: "keyword",
-      entries: new Map(),
-      confScore: 0,
-      isConfident: false,
-    };
-    let semResult: ClassificationResult = {
-      classifier: "semantic",
-      entries: new Map(),
-      confScore: 0,
-      isConfident: false,
-    };
+    let kwResult: ClassificationResult = { classifier: "keyword", entries: new Map() };
+    let semResult: ClassificationResult = { classifier: "semantic", entries: new Map() };
 
     // Run only the classifiers that have configured signal, so a missing
     // keyword/utterance config can never produce a bogus all-zero distribution.
@@ -102,19 +87,11 @@ export class CascadingRouter implements Router {
 
     const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
 
-    const confScore =
-      useKeyword && useSemantic
-        ? Math.min(kwResult.confScore, semResult.confScore)
-        : useKeyword
-          ? kwResult.confScore
-          : semResult.confScore;
-
     const result: RouteResult = {
       label: sorted[0][0],
       score: sorted[0][1].prob,
       stage: "pre-cascade",
       scores: entriesToScores(aggregated),
-      confScore,
     };
 
     return { result, kwResult, semResult, sorted };
@@ -130,13 +107,7 @@ export class CascadingRouter implements Router {
     const { label, score } = pickBestLabel(llmResult.entries);
 
     if (label !== null) {
-      return {
-        label,
-        score,
-        stage: "llm",
-        scores: entriesToScores(llmResult.entries),
-        confScore: llmResult.confScore,
-      };
+      return { label, score, stage: "llm", scores: entriesToScores(llmResult.entries) };
     }
 
     // LLM produced no usable answer — degrade gracefully to pre-cascade.
@@ -147,7 +118,7 @@ export class CascadingRouter implements Router {
     if (historical) {
       const scores: Record<string, number> = {};
       for (const c of gate.classes) scores[c.label] = c.label === historical ? 1 : 0;
-      return { label: historical, score: 0, stage: "historical", scores, confScore: 0 };
+      return { label: historical, score: 0, stage: "historical", scores };
     }
 
     throw new Error(
@@ -175,105 +146,36 @@ export class CascadingRouter implements Router {
   }
 }
 
-/** Decision for the pre-cascade stage, derived from each classifier's own gate. */
-export type PrecascadeDecision = {
-  cascade: boolean;
-  label: string | null;
-  score: number;
-  confScore: number;
-  scores: Record<string, number>;
-};
+/** Decide whether pre-cascade confidence is too low and should fall back to LLM. */
+export function shouldCascade(
+  aggregatedResults: [string, ClassificationEntry][],
+  kwResults: ClassificationResult,
+  semResults: ClassificationResult,
+  marginThreshold: number,
+  entropyThreshold: number,
+): boolean {
 
-/**
- * Combine the keyword and semantic deferral votes:
- *   both confident + agree    → use blended label
- *   both confident + disagree → cascade (contradiction)
- *   exactly one confident     → use that classifier's label
- *   neither confident         → cascade
- */
-export function resolvePrecascade(
-  kwResult: ClassificationResult,
-  semResult: ClassificationResult,
-  gate: Gate,
-  kwWeight: number,
-  semWeight: number,
-): PrecascadeDecision {
-  const kwTop = topEntry(kwResult.entries);
-  const semTop = topEntry(semResult.entries);
-  const kwLabel = kwTop?.[0] ?? null;
-  const semLabel = semTop?.[0] ?? null;
+  // Margin gates the gap between the #1 and #2 classes
+  // Shannon entropy gates how spread the probability is over� all� classes
+  const margin = computeRelativeMargin(aggregatedResults);
+  const entropy = computeEntropy(aggregatedResults);
+  if (margin < marginThreshold || entropy > entropyThreshold) return true;
 
-  const kwConfident = kwResult.isConfident;
-  const semConfident = semResult.isConfident;
 
-  if (kwConfident && semConfident) {
-    if (kwLabel !== null && kwLabel === semLabel) {
-      const aggregated = aggregatePrecascade(kwResult, semResult, gate, kwWeight, semWeight);
-      const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
-      const top = sorted[0];
-      return {
-        cascade: false,
-        label: top[0],
-        score: top[1].prob,
-        confScore: Math.min(kwResult.confScore, semResult.confScore),
-        scores: entriesToScores(aggregated),
-      };
-    }
-    return {
-      cascade: true,
-      ...bestGuess(kwResult, semResult, gate, kwWeight, semWeight),
-      confScore: 0,
-    };
-  }
+  // Confident disagreement: each classifier individually sure, but about
+  // different classes → contradictory evidence → cascade regardless of the blend.
+  const sortedKwResults = [...kwResults.entries].sort((a, b) => b[1].prob - a[1].prob);
+  const sortedSemResults = [...semResults.entries].sort((a, b) => b[1].prob - a[1].prob);
+  const kwMargin = computeRelativeMargin(sortedKwResults);
+  const semMargin = computeRelativeMargin(sortedSemResults);
+  const kwTop = sortedKwResults[0]?.[0] ?? null;
+  const semTop = sortedSemResults[0]?.[0] ?? null;
+  const kwConfident = kwTop !== null && kwMargin >= marginThreshold;
+  const semConfident = semTop !== null && semMargin >= marginThreshold;
 
-  if (kwConfident) {
-    return {
-      cascade: false,
-      label: kwLabel,
-      score: kwTop?.[1].prob ?? 0,
-      confScore: kwResult.confScore,
-      scores: entriesToScores(kwResult.entries),
-    };
-  }
+  if (kwConfident && semConfident && kwTop !== semTop) return true;
 
-  if (semConfident) {
-    return {
-      cascade: false,
-      label: semLabel,
-      score: semTop?.[1].prob ?? 0,
-      confScore: semResult.confScore,
-      scores: entriesToScores(semResult.entries),
-    };
-  }
-
-  return {
-    cascade: true,
-    ...bestGuess(kwResult, semResult, gate, kwWeight, semWeight),
-    confScore: 0,
-  };
-}
-
-/** Top label of a classifier's probability distribution. */
-function topEntry(
-  entries: Map<string, ClassificationEntry>,
-): [string, ClassificationEntry] | undefined {
-  const sorted = [...entries.entries()].sort((a, b) => b[1].prob - a[1].prob);
-  return sorted[0];
-}
-
-/** Blended best-guess (used for graceful degradation when the LLM fails). */
-function bestGuess(
-  kwResult: ClassificationResult,
-  semResult: ClassificationResult,
-  gate: Gate,
-  kwWeight: number,
-  semWeight: number,
-): { label: string | null; score: number; scores: Record<string, number> } {
-  const aggregated = aggregatePrecascade(kwResult, semResult, gate, kwWeight, semWeight);
-  const sorted = [...aggregated.entries()].sort((a, b) => b[1].prob - a[1].prob);
-  const top = sorted[0];
-  if (!top) return { label: null, score: 0, scores: {} };
-  return { label: top[0], score: top[1].prob, scores: entriesToScores(aggregated) };
+  return false;
 }
 
 /** True when at least one class has config keywords for the keyword classifier. */

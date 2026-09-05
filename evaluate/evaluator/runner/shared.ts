@@ -93,19 +93,10 @@ const LABEL_FIELD_ALIASES: Record<string, string> = {
   complexity_tier: "complexity_label",
 };
 
-/** Resolve --label-field (or LABEL_FIELD) into one or more label field names. */
-export function resolveLabelFields(raw: Record<string, string>): string[] {
-  const field = raw["label-field"] ?? process.env.LABEL_FIELD ?? "adaptive_label";
-  return field
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((f) => LABEL_FIELD_ALIASES[f] ?? f);
-}
-
-/** Resolve a single label field (the first of a comma-separated list). */
+/** Resolve which dataset field holds the ground-truth label. */
 export function resolveLabelField(raw: Record<string, string>): string {
-  return resolveLabelFields(raw)[0];
+  const field = raw["label-field"] ?? process.env.LABEL_FIELD ?? "adaptive_label";
+  return LABEL_FIELD_ALIASES[field] ?? field;
 }
 
 /** The gate name (run/metric directory) for a label field. */
@@ -328,23 +319,6 @@ export async function initDbAndSeed(
     embeddingModel?: string;
   } = {},
 ): Promise<DbContext> {
-  return initDbAndSeedAll([config], opts);
-}
-
-/**
- * Initialize the Postgres DB and seed one or more gates in a single eval
- * tenant (no cleanup between gates). Useful when one eval pass scores prompts
- * against multiple taxonomies (e.g. adaptive_label + complexity_label) and
- * needs every gate's utterance embeddings indexed at once.
- */
-export async function initDbAndSeedAll(
-  configs: DatasetConfig[],
-  opts: {
-    indexEmbeddings?: boolean;
-    embeddingUrl?: string;
-    embeddingModel?: string;
-  } = {},
-): Promise<DbContext> {
   const databaseUrl = DATABASE_URL;
   if (!databaseUrl) {
     throw new Error(
@@ -353,47 +327,38 @@ export async function initDbAndSeedAll(
   }
   initDb(databaseUrl);
 
-  // Seed labels: create (or reuse) each gate with its classes.
+  // Seed labels: create (or reuse) the gate with its classes.
   await cleanupDb();
   const apiKey = await ensureEvalApiKey();
+  const gate = await getOrCreateGate(apiKey.tenantId, config);
+  if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
 
+  // Index embeddings
   if (opts.indexEmbeddings) {
     const embedder = makeEmbedClient(
       opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
       opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
     );
-    let total = 0;
-    for (const config of configs) {
-      const gate = await getOrCreateGate(apiKey.tenantId, config);
-      if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
-
-      const rows: NewEmbeddingInput[] = [];
-      for (const cls of gate.classes) {
-        for (const utterance of cls.utterances) {
-          rows.push({
-            classId: cls.id,
-            gateName: gate.gate.name,
-            label: cls.label,
-            content: utterance,
-            source: "config",
-            embedding: await embedder.embed(utterance),
-          });
-        }
+    const rows: NewEmbeddingInput[] = [];
+    for (const cls of gate.classes) {
+      for (const utterance of cls.utterances) {
+        rows.push({
+          classId: cls.id,
+          gateName: gate.gate.name,
+          label: cls.label,
+          content: utterance,
+          source: "config",
+          embedding: await embedder.embed(utterance),
+        });
       }
-      await insertMany(rows);
-      total += rows.length;
-      console.log(
-        `Indexed ${rows.length} embeddings for gate "${config.gate.name}" (${gate.classes.length} classes).`,
-      );
     }
-    console.log(`Indexed ${total} embeddings across ${configs.length} gate(s).`);
+    await insertMany(rows);
+    console.log(
+      `Indexed ${rows.length} embeddings for ${gate.classes.length} classes.`,
+    );
     return { tenantId: apiKey.tenantId, embed: embedder.embed };
   }
 
-  for (const config of configs) {
-    const gate = await getOrCreateGate(apiKey.tenantId, config);
-    if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
-  }
   return { tenantId: apiKey.tenantId };
 }
 
@@ -492,16 +457,7 @@ export interface ClassifierPrompt {
   predicted: string;
   correct: boolean;
   scores: Record<string, number>;
-  confScore: number;
-  isConfident: boolean;
   latencyMs: number;
-}
-
-/** Per-classifier confidence recorded by the pre-cascade runner. */
-export interface PreCascadeConfidence {
-  confScore: number;
-  isConfident: boolean;
-  label: string | null;
 }
 
 export interface PreCascadePrompt {
@@ -513,8 +469,6 @@ export interface PreCascadePrompt {
   entropy: number;
   cascade: boolean;
   scores: Record<string, number>;
-  kw: PreCascadeConfidence;
-  sem: PreCascadeConfidence;
   latencyMs: number;
 }
 

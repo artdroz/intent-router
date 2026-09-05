@@ -43,11 +43,6 @@ interface ClassifierMetrics {
   ece: number;
   avgConfidenceCorrect: number;
   avgConfidenceIncorrect: number;
-  silentErrorRate: number;
-  regretCascadeRate: number;
-  cascadePrecision: number;
-  cascadeRate: number;
-  cost: number;
   avgLatencyMs: number;
   perClass: Record<string, { total: number; correct: number; accuracy: number }>;
 }
@@ -60,12 +55,8 @@ interface PreCascadeMetrics {
   cascadeRate: number;
   silentErrorRate: number;
   cascadePrecision: number;
-  cost: number;
+  regretCost: number;
   regretCascadeRate: number;
-  kwAvgConfidenceCorrect: number;
-  kwAvgConfidenceIncorrect: number;
-  semAvgConfidenceCorrect: number;
-  semAvgConfidenceIncorrect: number;
   marginP50: number;
   marginP90: number;
   entropyP50: number;
@@ -96,17 +87,6 @@ interface OverallClassifier {
     {
       accuracy: { weighted: number; macro: number; variance: number };
       ece: { weighted: number; macro: number; variance: number; pooled: number };
-      confidence: {
-        avgCorrect: { weighted: number; variance: number };
-        avgIncorrect: { weighted: number; variance: number };
-      };
-      gate: {
-        silentErrorRate: { weighted: number; variance: number };
-        regretCascadeRate: { weighted: number; variance: number };
-        cascadePrecision: { weighted: number; variance: number };
-        cascadeRate: { weighted: number; variance: number };
-        cost: { weighted: number; variance: number };
-      };
       latencyMs: { weighted: number; variance: number };
       perDataset: Record<
         string,
@@ -116,11 +96,6 @@ interface OverallClassifier {
           ece: number;
           avgConfidenceCorrect: number;
           avgConfidenceIncorrect: number;
-          silentErrorRate: number;
-          regretCascadeRate: number;
-          cascadePrecision: number;
-          cascadeRate: number;
-          cost: number;
           avgLatencyMs: number;
         }
       >;
@@ -138,11 +113,6 @@ interface OverallPreCascade {
       cascadeRate: { weighted: number; variance: number };
       silentErrorRate: { weighted: number; variance: number };
       cascadePrecision: { weighted: number; variance: number };
-      cost: { weighted: number; variance: number };
-      confidence: {
-        kw: { correct: { weighted: number; variance: number }; incorrect: { weighted: number; variance: number } };
-        sem: { correct: { weighted: number; variance: number }; incorrect: { weighted: number; variance: number } };
-      };
       perDataset: Record<
         string,
         {
@@ -150,11 +120,7 @@ interface OverallPreCascade {
           cascadeRate: number;
           silentErrorRate: number;
           cascadePrecision: number;
-          cost: number;
-          kwAvgConfidenceCorrect: number;
-          kwAvgConfidenceIncorrect: number;
-          semAvgConfidenceCorrect: number;
-          semAvgConfidenceIncorrect: number;
+          regretCost: number;
         }
       >;
     }
@@ -285,15 +251,6 @@ function variance(values: number[]): number {
   return values.reduce((s, v) => s + (v - mean) ** 2, 0) / values.length;
 }
 
-function weightedMean<T extends { promptCount: number }>(
-  entries: T[],
-  pick: (e: T) => number,
-): number {
-  const total = entries.reduce((s, e) => s + e.promptCount, 0);
-  if (total === 0) return 0;
-  return entries.reduce((s, e) => s + pick(e) * e.promptCount, 0) / total;
-}
-
 // ── Stage: Classifier ──
 
 function handleClassifier(datasets: string[], split: string | undefined, gateName: string) {
@@ -308,11 +265,6 @@ function handleClassifier(datasets: string[], split: string | undefined, gateNam
       ece: number;
       avgConfidenceCorrect: number;
       avgConfidenceIncorrect: number;
-      silentErrorRate: number;
-      regretCascadeRate: number;
-      cascadePrecision: number;
-      cascadeRate: number;
-      cost: number;
       avgLatencyMs: number;
     }[]
   >;
@@ -333,11 +285,6 @@ function handleClassifier(datasets: string[], split: string | undefined, gateNam
         ece: m.ece,
         avgConfidenceCorrect: m.avgConfidenceCorrect,
         avgConfidenceIncorrect: m.avgConfidenceIncorrect,
-        silentErrorRate: m.silentErrorRate,
-        regretCascadeRate: m.regretCascadeRate,
-        cascadePrecision: m.cascadePrecision,
-        cascadeRate: m.cascadeRate,
-        cost: m.cost,
         avgLatencyMs: m.avgLatencyMs,
       });
     }
@@ -384,23 +331,9 @@ function handleClassifier(datasets: string[], split: string | undefined, gateNam
         ece: e.ece,
         avgConfidenceCorrect: e.avgConfidenceCorrect,
         avgConfidenceIncorrect: e.avgConfidenceIncorrect,
-        silentErrorRate: e.silentErrorRate,
-        regretCascadeRate: e.regretCascadeRate,
-        cascadePrecision: e.cascadePrecision,
-        cascadeRate: e.cascadeRate,
-        cost: e.cost,
         avgLatencyMs: e.avgLatencyMs,
       };
     }
-
-    // Weighted confidence + gate metrics
-    const wAvgConfCorrect = round(weightedMean(entries, (e) => e.avgConfidenceCorrect));
-    const wAvgConfIncorrect = round(weightedMean(entries, (e) => e.avgConfidenceIncorrect));
-    const wSilentErrorRate = round(weightedMean(entries, (e) => e.silentErrorRate));
-    const wRegretCascadeRate = round(weightedMean(entries, (e) => e.regretCascadeRate));
-    const wCascadePrecision = round(weightedMean(entries, (e) => e.cascadePrecision));
-    const wCascadeRate = round(weightedMean(entries, (e) => e.cascadeRate));
-    const wCost = round(weightedMean(entries, (e) => e.cost));
 
     // Weighted latency
     const weightedLatency = Math.round(
@@ -412,35 +345,6 @@ function handleClassifier(datasets: string[], split: string | undefined, gateNam
     classifiers[name] = {
       accuracy: { weighted: weightedAccuracy, macro: macroAccuracy, variance: accuracyVariance },
       ece: { weighted: weightedEce, macro: macroEce, variance: eceVariance, pooled: pooledEce },
-      confidence: {
-        avgCorrect: {
-          weighted: wAvgConfCorrect,
-          variance: round(variance(entries.map((e) => e.avgConfidenceCorrect))),
-        },
-        avgIncorrect: {
-          weighted: wAvgConfIncorrect,
-          variance: round(variance(entries.map((e) => e.avgConfidenceIncorrect))),
-        },
-      },
-      gate: {
-        silentErrorRate: {
-          weighted: wSilentErrorRate,
-          variance: round(variance(entries.map((e) => e.silentErrorRate))),
-        },
-        regretCascadeRate: {
-          weighted: wRegretCascadeRate,
-          variance: round(variance(entries.map((e) => e.regretCascadeRate))),
-        },
-        cascadePrecision: {
-          weighted: wCascadePrecision,
-          variance: round(variance(entries.map((e) => e.cascadePrecision))),
-        },
-        cascadeRate: {
-          weighted: wCascadeRate,
-          variance: round(variance(entries.map((e) => e.cascadeRate))),
-        },
-        cost: { weighted: wCost, variance: round(variance(entries.map((e) => e.cost))) },
-      },
       latencyMs: { weighted: weightedLatency, variance: latencyVariance },
       perDataset,
     };
@@ -522,11 +426,7 @@ function handlePreCascade(datasets: string[], split: string | undefined, gateNam
       cascadeRate: number;
       silentErrorRate: number;
       cascadePrecision: number;
-      cost: number;
-      kwAvgConfidenceCorrect: number;
-      kwAvgConfidenceIncorrect: number;
-      semAvgConfidenceCorrect: number;
-      semAvgConfidenceIncorrect: number;
+      regretCost: number;
     }[]
   >;
 
@@ -544,11 +444,7 @@ function handlePreCascade(datasets: string[], split: string | undefined, gateNam
         cascadeRate: m.cascadeRate,
         silentErrorRate: m.silentErrorRate,
         cascadePrecision: m.cascadePrecision,
-        cost: m.cost,
-        kwAvgConfidenceCorrect: m.kwAvgConfidenceCorrect,
-        kwAvgConfidenceIncorrect: m.kwAvgConfidenceIncorrect,
-        semAvgConfidenceCorrect: m.semAvgConfidenceCorrect,
-        semAvgConfidenceIncorrect: m.semAvgConfidenceIncorrect,
+        regretCost: m.regretCost,
       });
     }
   }
@@ -585,13 +481,6 @@ function handlePreCascade(datasets: string[], split: string | undefined, gateNam
       variance(entries.map((e) => e.cascadePrecision)),
     );
 
-    // Weighted cost + per-classifier confidence
-    const wCost = round(weightedMean(entries, (e) => e.cost));
-    const wKwConfCorrect = round(weightedMean(entries, (e) => e.kwAvgConfidenceCorrect));
-    const wKwConfIncorrect = round(weightedMean(entries, (e) => e.kwAvgConfidenceIncorrect));
-    const wSemConfCorrect = round(weightedMean(entries, (e) => e.semAvgConfidenceCorrect));
-    const wSemConfIncorrect = round(weightedMean(entries, (e) => e.semAvgConfidenceIncorrect));
-
     const perDataset: OverallPreCascade["runs"][string]["perDataset"] = {};
     for (const e of entries) {
       perDataset[e.dataset] = {
@@ -599,11 +488,7 @@ function handlePreCascade(datasets: string[], split: string | undefined, gateNam
         cascadeRate: e.cascadeRate,
         silentErrorRate: e.silentErrorRate,
         cascadePrecision: e.cascadePrecision,
-        cost: e.cost,
-        kwAvgConfidenceCorrect: e.kwAvgConfidenceCorrect,
-        kwAvgConfidenceIncorrect: e.kwAvgConfidenceIncorrect,
-        semAvgConfidenceCorrect: e.semAvgConfidenceCorrect,
-        semAvgConfidenceIncorrect: e.semAvgConfidenceIncorrect,
+        regretCost: e.regretCost,
       };
     }
 
@@ -613,29 +498,6 @@ function handlePreCascade(datasets: string[], split: string | undefined, gateNam
       cascadePrecision: {
         weighted: wCascadePrecision,
         variance: vCascadePrecision,
-      },
-      cost: { weighted: wCost, variance: round(variance(entries.map((e) => e.cost))) },
-      confidence: {
-        kw: {
-          correct: {
-            weighted: wKwConfCorrect,
-            variance: round(variance(entries.map((e) => e.kwAvgConfidenceCorrect))),
-          },
-          incorrect: {
-            weighted: wKwConfIncorrect,
-            variance: round(variance(entries.map((e) => e.kwAvgConfidenceIncorrect))),
-          },
-        },
-        sem: {
-          correct: {
-            weighted: wSemConfCorrect,
-            variance: round(variance(entries.map((e) => e.semAvgConfidenceCorrect))),
-          },
-          incorrect: {
-            weighted: wSemConfIncorrect,
-            variance: round(variance(entries.map((e) => e.semAvgConfidenceIncorrect))),
-          },
-        },
       },
       perDataset,
     };
