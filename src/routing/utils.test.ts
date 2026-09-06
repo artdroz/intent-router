@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { buildResult, computeMargin, computeEntropy, pickBestLabel } from "./utils.js";
+import {
+  buildResult,
+  computeMargin,
+  computeEntropy,
+  computeRelativeMargin,
+  pickBestLabel,
+  sanitizeForProxy,
+} from "./utils.js";
 import type { ClassificationEntry } from "./classifiers/types.js";
 
 const entry = (prob: number, evidence: string[] = []): ClassificationEntry => ({ prob, evidence });
@@ -99,5 +106,53 @@ describe("pickBestLabel", () => {
       ["b", entry(0)],
     ]);
     expect(pickBestLabel(entries)).toEqual({ label: null, score: 0 });
+  });
+});
+
+describe("computeRelativeMargin", () => {
+  it("returns the relative gap between the top two", () => {
+    const sorted: [string, ClassificationEntry][] = [
+      ["a", entry(0.6)],
+      ["b", entry(0.3)],
+    ];
+    expect(computeRelativeMargin(sorted)).toBeCloseTo(0.5);
+  });
+
+  it("returns 1.0 for a single-entry distribution", () => {
+    const sorted: [string, ClassificationEntry][] = [["a", entry(0.9)]];
+    expect(computeRelativeMargin(sorted)).toBe(1.0);
+  });
+
+  it("returns 1.0 for an empty distribution instead of crashing", () => {
+    // Reached in production when a classifier has no configured signal.
+    expect(computeRelativeMargin([])).toBe(1.0);
+  });
+});
+
+describe("sanitizeForProxy", () => {
+  it("neutralizes path-traversal separators", () => {
+    expect(sanitizeForProxy("a/../b/file.py")).toBe("a/.. /b/file.py");
+    expect(sanitizeForProxy("a\\..\\b")).toBe("a\\.. \\b");
+  });
+
+  it("rewrites private and loopback IPv4 addresses", () => {
+    expect(sanitizeForProxy("10.0.0.1")).toBe("10_0_0_1");
+    expect(sanitizeForProxy("127.0.0.1")).toBe("127_0_0_1");
+    expect(sanitizeForProxy("169.254.1.1")).toBe("169_254_1_1");
+    expect(sanitizeForProxy("192.168.1.10")).toBe("192_168_1_10");
+    expect(sanitizeForProxy("172.16.0.1")).toBe("172_16_0_1");
+    expect(sanitizeForProxy("172.31.255.255")).toBe("172_31_255_255");
+  });
+
+  it("leaves public IPv4 addresses untouched", () => {
+    expect(sanitizeForProxy("8.8.8.8")).toBe("8.8.8.8");
+    expect(sanitizeForProxy("172.15.0.1")).toBe("172.15.0.1");
+    expect(sanitizeForProxy("172.32.0.1")).toBe("172.32.0.1");
+  });
+
+  it("rewrites 0.0.0.0 and localhost case-insensitively", () => {
+    expect(sanitizeForProxy("0.0.0.0")).toBe("0_0_0_0");
+    expect(sanitizeForProxy("localhost")).toBe("local-host");
+    expect(sanitizeForProxy("LocalHost")).toBe("local-host");
   });
 });

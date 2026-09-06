@@ -1,0 +1,16 @@
+{
+  "complexity_router_heuristic": {
+    "n": 630,
+    "disagree": 485,
+    "cascade_right_litellm_wrong": 285,
+    "litellm_right_cascade_wrong": 79,
+    "both_wrong": 121
+  },
+  "complexity_router_llm": {
+    "n": 630,
+    "disagree": 450,
+    "cascade_right_litellm_wrong": 269,
+    "litellm_right_cascade_wrong": 84,
+    "both_wrong": 97
+  }
+}

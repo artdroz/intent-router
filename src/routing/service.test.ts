@@ -39,6 +39,7 @@ const predictedClass = {
   gateId: 1,
   gateName: "ops",
   label: "deploy",
+  description: null,
   utterances: [],
   keywords: [],
   weight: 1,
@@ -56,12 +57,7 @@ describe("submitFeedback (embedding learning)", () => {
 
     await submitFeedback({ routeId: "r_abc", positive: true }, "tenant-1");
 
-    expect(deleteBySource).toHaveBeenCalledWith(
-      "tenant-1",
-      42,
-      "deploy the app",
-      "neg_feedback",
-    );
+    expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "neg_feedback");
     expect(insertMany).toHaveBeenCalledWith([
       expect.objectContaining({
         tenantId: "tenant-1",
@@ -76,19 +72,12 @@ describe("submitFeedback (embedding learning)", () => {
   });
 
   it("negative feedback stores a neg_feedback guardrail and clears the positive embedding", async () => {
-    getRouteByRouteId.mockResolvedValue(
-      routeEvent({ scores: { deploy: 0.9, other: 0.1 } }),
-    );
+    getRouteByRouteId.mockResolvedValue(routeEvent({ scores: { deploy: 0.9, other: 0.1 } }));
     getClassById.mockResolvedValue(predictedClass);
 
     await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
 
-    expect(deleteBySource).toHaveBeenCalledWith(
-      "tenant-1",
-      42,
-      "deploy the app",
-      "pos_feedback",
-    );
+    expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "pos_feedback");
     expect(insertMany).toHaveBeenCalledWith([
       expect.objectContaining({
         source: "neg_feedback",
@@ -107,6 +96,28 @@ describe("submitFeedback (embedding learning)", () => {
 
     expect(deleteBySource).not.toHaveBeenCalled();
     expect(insertMany).not.toHaveBeenCalled();
+  });
+
+  it("skips negative feedback learning when the top-2 margin is below LRN_NEG_MARGIN", async () => {
+    getRouteByRouteId.mockResolvedValue(
+      routeEvent({ scores: { deploy: 0.55, other: 0.45 } }), // margin 0.10 < 0.20
+    );
+    getClassById.mockResolvedValue(predictedClass);
+
+    await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
+
+    expect(insertMany).not.toHaveBeenCalled();
+  });
+
+  it("learns from negative feedback when the top-2 margin equals LRN_NEG_MARGIN", async () => {
+    getRouteByRouteId.mockResolvedValue(
+      routeEvent({ scores: { deploy: 0.6, other: 0.4 } }), // margin 0.20 → inclusive
+    );
+    getClassById.mockResolvedValue(predictedClass);
+
+    await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
+
+    expect(insertMany).toHaveBeenCalled();
   });
 
   it("persists feedback even when embedding fails", async () => {
@@ -139,9 +150,9 @@ describe("submitFeedback (embedding learning)", () => {
   it("rejects feedback from a tenant that did not create the route", async () => {
     getRouteByRouteId.mockResolvedValue(routeEvent({ tenantId: "tenant-other" }));
 
-    await expect(
-      submitFeedback({ routeId: "r_abc", positive: true }, "tenant-1"),
-    ).rejects.toThrow(/not found/);
+    await expect(submitFeedback({ routeId: "r_abc", positive: true }, "tenant-1")).rejects.toThrow(
+      /not found/,
+    );
 
     expect(insertMany).not.toHaveBeenCalled();
   });

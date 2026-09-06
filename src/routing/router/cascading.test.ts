@@ -91,20 +91,20 @@ describe("shouldCascade", () => {
     expect(shouldCascade(sorted, kw("a", 0.5), sem("a", 0.5), 0.15, 0.8)).toBe(true);
   });
 
-  it("does not cascade for a confident distribution with conflicting classifiers", () => {
+  it("cascades when the two classifiers are individually confident but disagree", () => {
     const sorted: [string, ClassificationEntry][] = [
       ["a", entry(0.9)],
       ["b", entry(0.1)],
     ];
-    expect(shouldCascade(sorted, kw("a", 0.9), sem("b", 0.9), 0.15, 1.2)).toBe(false);
+    expect(shouldCascade(sorted, kw("a", 0.9), sem("b", 0.9), 0.15, 1.2)).toBe(true);
   });
 
-  it("cascades for a confident distribution with agreeing classifiers", () => {
+  it("does not cascade when the two classifiers confidently agree", () => {
     const sorted: [string, ClassificationEntry][] = [
       ["a", entry(0.9)],
       ["b", entry(0.1)],
     ];
-    expect(shouldCascade(sorted, kw("a", 0.9), sem("a", 0.9), 0.15, 1.2)).toBe(true);
+    expect(shouldCascade(sorted, kw("a", 0.9), sem("a", 0.9), 0.15, 1.2)).toBe(false);
   });
 });
 

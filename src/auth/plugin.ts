@@ -1,3 +1,4 @@
+import fp from "fastify-plugin";
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
 import { verifyApiKey } from "./api-keys.js";
 
@@ -14,9 +15,10 @@ const ERROR_MESSAGES = {
   expired: "API key expired",
 } as const;
 
-// Scoped plugin (no `fastify-plugin`): the onRequest hook and request decoration
-// apply only to routes registered inside the same encapsulated scope.
-export function authPlugin(app: FastifyInstance) {
+// Registered with `fastify-plugin` so the onRequest hook and the request
+// decoration apply to the parent scope where the gate and routing routes are
+// registered, not just to this plugin's own encapsulated context.
+export const authPlugin = fp((app: FastifyInstance) => {
   app.decorateRequest("tenantId", "");
 
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
@@ -26,4 +28,4 @@ export function authPlugin(app: FastifyInstance) {
     }
     req.tenantId = result.tenantId;
   });
-}
+});

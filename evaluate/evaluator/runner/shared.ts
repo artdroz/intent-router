@@ -10,12 +10,12 @@
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
-import { eq } from "drizzle-orm";
+import { eq, and, isNull } from "drizzle-orm";
 import { getDb, initDb } from "../../../src/store/db.js";
 import { createGate } from "../../../src/store/gates.js";
 import { insertMany, type NewEmbeddingInput } from "../../../src/store/embeddings.js";
 import { findKeyByName, insertKey } from "../../../src/store/api-keys.js";
-import { gates as gatesTable, classes as classesTable, tenants as tenantsTable } from "../../../src/store/schema.js";
+import { gates as gatesTable, classes as classesTable, tenants as tenantsTable, embeddings as embeddingsTable } from "../../../src/store/schema.js";
 import { createEmbedClient, type EmbedClient } from "../../../src/lib/embed-client.js";
 import { initLlmClient, type LlmClient } from "../../../src/lib/llm-client.js";
 import type { Gate } from "../../../src/gates/types.js";
@@ -29,7 +29,7 @@ import {
   REQUEST_INTERVAL_MS,
   RETRY_DELAY_MS,
 } from "../config.js";
-import { main as cleanupDb } from "../eval-cleanup.js";
+import { clearLearnedState } from "../eval-cleanup.js";
 
 // ── Dataset Types ──
 
@@ -327,35 +327,47 @@ export async function initDbAndSeed(
   }
   initDb(databaseUrl);
 
-  // Seed labels: create (or reuse) the gate with its classes.
-  await cleanupDb();
+  // Seed labels: create (or reuse) the gate with its classes. Only the
+  // *learned* state is wiped between runs; the tenant, gate, classes and config
+  // embeddings are kept so they are not re-embedded on every round.
+  await clearLearnedState();
   const apiKey = await ensureEvalApiKey();
   const gate = await getOrCreateGate(apiKey.tenantId, config);
   if (!gate) throw new Error(`Failed to create gate "${config.gate.name}"`);
 
-  // Index embeddings
+  // Index embeddings (skip if this gate's config embeddings are already indexed)
   if (opts.indexEmbeddings) {
     const embedder = makeEmbedClient(
       opts.embeddingUrl ?? DEFAULT_EMBEDDING_URL,
       opts.embeddingModel ?? DEFAULT_EMBEDDING_MODEL,
     );
-    const rows: NewEmbeddingInput[] = [];
-    for (const cls of gate.classes) {
-      for (const utterance of cls.utterances) {
-        rows.push({
-          classId: cls.id,
-          gateName: gate.gate.name,
-          label: cls.label,
-          content: utterance,
-          source: "config",
-          embedding: await embedder.embed(utterance),
-        });
+    const db = getDb();
+    const [existing] = await db
+      .select({ id: embeddingsTable.id })
+      .from(embeddingsTable)
+      .where(and(eq(embeddingsTable.gateName, gate.gate.name), isNull(embeddingsTable.tenantId)))
+      .limit(1);
+    if (!existing) {
+      const rows: NewEmbeddingInput[] = [];
+      for (const cls of gate.classes) {
+        for (const utterance of cls.utterances) {
+          rows.push({
+            classId: cls.id,
+            gateName: gate.gate.name,
+            label: cls.label,
+            content: utterance,
+            source: "config",
+            embedding: await embedder.embed(utterance),
+          });
+        }
       }
+      await insertMany(rows);
+      console.log(
+        `Indexed ${rows.length} embeddings for ${gate.classes.length} classes.`,
+      );
+    } else {
+      console.log(`Config embeddings for "${gate.gate.name}" already indexed — skipping.`);
     }
-    await insertMany(rows);
-    console.log(
-      `Indexed ${rows.length} embeddings for ${gate.classes.length} classes.`,
-    );
     return { tenantId: apiKey.tenantId, embed: embedder.embed };
   }
 

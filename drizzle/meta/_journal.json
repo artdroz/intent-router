@@ -36,6 +36,13 @@
       "when": 1788370943539,
       "tag": "0004_white_starjammers",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788708494185,
+      "tag": "0005_slow_medusa",
+      "breakpoints": true
     }
   ]
 }

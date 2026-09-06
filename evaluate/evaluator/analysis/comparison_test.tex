@@ -1,0 +1,27 @@
+% request_type — pooled test split
+\begin{tabular}{l r r r r r r}
+  \toprule
+  System & Accuracy & Macro acc. & Avg lat. (ms) & p90 lat. (ms) & Cascade rate & LLM cond. acc. \\
+  \midrule
+  Keyword & 0.392 & 0.322 & 2 & 2 & --- & --- \\
+  Semantic & 0.508 & 0.397 & 508 & 677 & --- & --- \\
+  LLM-only & 0.656 & 0.607 & 4689 & 8576 & --- & --- \\
+  Cascade (ours) & 0.652 & 0.598 & 3642 & 8297 & 0.651 & 0.615 \\
+  Adaptive router (LiteLLM) & 0.187 & 0.140 & 1 & 1 & --- & --- \\
+  Auto router (LiteLLM) & 0.189 & 0.143 & 669 & 767 & --- & --- \\
+  \bottomrule
+\end{tabular}
+
+% complexity_tier — pooled test split
+\begin{tabular}{l r r r r r r}
+  \toprule
+  System & Accuracy & Macro acc. & Avg lat. (ms) & p90 lat. (ms) & Cascade rate & LLM cond. acc. \\
+  \midrule
+  Keyword & 0.322 & 0.298 & 1 & 1 & --- & --- \\
+  Semantic & 0.519 & 0.448 & 506 & 662 & --- & --- \\
+  LLM-only & 0.603 & 0.556 & 4733 & 8298 & --- & --- \\
+  Cascade (ours) & 0.570 & 0.512 & 4204 & 8368 & 0.719 & 0.578 \\
+  Complexity heuristic (LiteLLM) & 0.243 & 0.271 & 3 & 6 & --- & --- \\
+  Complexity LLM (LiteLLM) & 0.276 & 0.266 & 11943 & 54978 & --- & --- \\
+  \bottomrule
+\end{tabular}

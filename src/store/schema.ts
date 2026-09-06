@@ -93,6 +93,7 @@ export const classes = pgTable(
     // Denormalized for easier querying; must match the gate's name.
     gateName: text("gate_name").notNull(),
     label: text("label").notNull(),
+    description: text("description"),
     utterances: text("utterances")
       .array()
       .notNull()

@@ -13,6 +13,9 @@ export const RUNS_DIR = "evaluate/runs";
 /** Root directory for computed metrics (JSON). */
 export const METRICS_DIR = "evaluate/metrics";
 
+/** Root directory for threshold-sweep JSON output (tune-thresholds.ts). */
+export const RUNS_THRESHOLDS = "evaluate/runs/thresholds";
+
 // ── Service env (matches src/app.ts env schema and .env) ──
 
 export const DATABASE_URL = process.env.DATABASE_URL;

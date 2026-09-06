@@ -1,0 +1,1170 @@
+{
+  "request_type": {
+    "k8": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.30154405635772097
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.3334254255061708
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.38119437498319486
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5238095238095238,
+            "macro_accuracy": 0.2280894571267242
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5238095238095238,
+            "macro_accuracy": 0.4368140141432067,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.09047619047619047,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5380952380952381,
+            "macro_accuracy": 0.27586311204323627,
+            "cascade_rate": 0.3904761904761905,
+            "silent_error_rate": 0.16666666666666666,
+            "cascade_precision": 0.7560975609756098,
+            "regret_cascade_rate": 0.09523809523809523
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6666666666666666,
+            "macro_accuracy": 0.5848316797074561,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.6688311688311688,
+            "avg_latency_ms": 4129.371428571429
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6666666666666666,
+            "macro_accuracy": 0.49825024871608725,
+            "cascade_rate": 0.3904761904761905,
+            "llm_cond_accuracy": 0.573170731707317,
+            "avg_latency_ms": 2277.404761904762
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.30154405635772097
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.49047619047619045,
+            "macro_accuracy": 0.34618523298647524
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.38119437498319486
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.49523809523809526,
+            "macro_accuracy": 0.2129547471162378
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5238095238095238,
+            "macro_accuracy": 0.4368140141432067,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.09047619047619047,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.27827633029496385,
+            "cascade_rate": 0.42857142857142855,
+            "silent_error_rate": 0.18571428571428572,
+            "cascade_precision": 0.6888888888888889,
+            "regret_cascade_rate": 0.13333333333333333
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6666666666666666,
+            "macro_accuracy": 0.5848316797074561,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.6688311688311688,
+            "avg_latency_ms": 4129.371428571429
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6190476190476191,
+            "macro_accuracy": 0.4767430292275012,
+            "cascade_rate": 0.42857142857142855,
+            "llm_cond_accuracy": 0.5444444444444444,
+            "avg_latency_ms": 2522.709523809524
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.30154405635772097
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5476190476190477,
+            "macro_accuracy": 0.3409171573767847
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.38119437498319486
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.2444643865451319
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5238095238095238,
+            "macro_accuracy": 0.4368140141432067,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.09047619047619047,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5714285714285714,
+            "macro_accuracy": 0.29842233336022156,
+            "cascade_rate": 0.3476190476190476,
+            "silent_error_rate": 0.20476190476190476,
+            "cascade_precision": 0.6438356164383562,
+            "regret_cascade_rate": 0.12380952380952381
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6666666666666666,
+            "macro_accuracy": 0.5848316797074561,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.6688311688311688,
+            "avg_latency_ms": 4129.371428571429
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6619047619047619,
+            "macro_accuracy": 0.480050280981958,
+            "cascade_rate": 0.3476190476190476,
+            "llm_cond_accuracy": 0.6164383561643836,
+            "avg_latency_ms": 2083.2238095238095
+          }
+        }
+      }
+    },
+    "cpython": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5571428571428572,
+            "macro_accuracy": 0.28859555503022755
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6142857142857143,
+            "macro_accuracy": 0.3157690594306493
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.33711437024131913
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.638095238095238,
+            "macro_accuracy": 0.27489129932750844
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6571428571428571,
+            "macro_accuracy": 0.3499041745527939,
+            "cascade_rate": 0.4857142857142857,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.5,
+            "regret_cascade_rate": 0.24285714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6285714285714286,
+            "macro_accuracy": 0.2805831173391168,
+            "cascade_rate": 0.3476190476190476,
+            "silent_error_rate": 0.1380952380952381,
+            "cascade_precision": 0.6712328767123288,
+            "regret_cascade_rate": 0.11428571428571428
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.7,
+            "macro_accuracy": 0.515929025103337,
+            "cascade_rate": 0.4857142857142857,
+            "llm_cond_accuracy": 0.5882352941176471,
+            "avg_latency_ms": 2935.4714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6952380952380952,
+            "macro_accuracy": 0.5937224523567001,
+            "cascade_rate": 0.3476190476190476,
+            "llm_cond_accuracy": 0.5205479452054794,
+            "avg_latency_ms": 2122.1190476190477
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5571428571428572,
+            "macro_accuracy": 0.28859555503022755
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5952380952380952,
+            "macro_accuracy": 0.27504053771509823
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.33711437024131913
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6190476190476191,
+            "macro_accuracy": 0.2546184687098503
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6571428571428571,
+            "macro_accuracy": 0.3499041745527939,
+            "cascade_rate": 0.4857142857142857,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.5,
+            "regret_cascade_rate": 0.24285714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6238095238095238,
+            "macro_accuracy": 0.27011497563764025,
+            "cascade_rate": 0.3619047619047619,
+            "silent_error_rate": 0.1380952380952381,
+            "cascade_precision": 0.6578947368421053,
+            "regret_cascade_rate": 0.12380952380952381
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.7,
+            "macro_accuracy": 0.515929025103337,
+            "cascade_rate": 0.4857142857142857,
+            "llm_cond_accuracy": 0.5882352941176471,
+            "avg_latency_ms": 2935.4714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6904761904761905,
+            "macro_accuracy": 0.48901044271406274,
+            "cascade_rate": 0.3619047619047619,
+            "llm_cond_accuracy": 0.5263157894736842,
+            "avg_latency_ms": 2165.7428571428572
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5571428571428572,
+            "macro_accuracy": 0.28859555503022755
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6190476190476191,
+            "macro_accuracy": 0.31623519969884134
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.33711437024131913
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6190476190476191,
+            "macro_accuracy": 0.25654500965207344
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6571428571428571,
+            "macro_accuracy": 0.3499041745527939,
+            "cascade_rate": 0.4857142857142857,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.5,
+            "regret_cascade_rate": 0.24285714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6333333333333333,
+            "macro_accuracy": 0.2818937333286319,
+            "cascade_rate": 0.35714285714285715,
+            "silent_error_rate": 0.12857142857142856,
+            "cascade_precision": 0.6666666666666666,
+            "regret_cascade_rate": 0.11904761904761904
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.7,
+            "macro_accuracy": 0.515929025103337,
+            "cascade_rate": 0.4857142857142857,
+            "llm_cond_accuracy": 0.5882352941176471,
+            "avg_latency_ms": 2935.4714285714285
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.680952380952381,
+            "macro_accuracy": 0.5465671446102593,
+            "cascade_rate": 0.35714285714285715,
+            "llm_cond_accuracy": 0.4666666666666667,
+            "avg_latency_ms": 2058.8952380952383
+          }
+        }
+      }
+    },
+    "vscode": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.2571428571428571,
+            "macro_accuracy": 0.24369738772723845
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3,
+            "macro_accuracy": 0.264778917017723
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.4297088953805371
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4142857142857143,
+            "macro_accuracy": 0.3448020022646889
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.3169362326078744,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.6298701298701299,
+            "regret_cascade_rate": 0.2714285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.38571428571428573,
+            "macro_accuracy": 0.2900710781307796,
+            "cascade_rate": 0.5238095238095238,
+            "silent_error_rate": 0.21904761904761905,
+            "cascade_precision": 0.7545454545454545,
+            "regret_cascade_rate": 0.12857142857142856
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5904761904761905,
+            "macro_accuracy": 0.5097364627215373,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.577922077922078,
+            "avg_latency_ms": 3862.285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.44285714285714284,
+            "macro_accuracy": 0.35283970209343346,
+            "cascade_rate": 0.5238095238095238,
+            "llm_cond_accuracy": 0.35454545454545455,
+            "avg_latency_ms": 3779.9666666666667
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.2571428571428571,
+            "macro_accuracy": 0.24369738772723845
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.38095238095238093,
+            "macro_accuracy": 0.275575641247283
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.4297088953805371
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4095238095238095,
+            "macro_accuracy": 0.2746682388473433
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.3169362326078744,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.6298701298701299,
+            "regret_cascade_rate": 0.2714285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4238095238095238,
+            "macro_accuracy": 0.2864795909572029,
+            "cascade_rate": 0.4714285714285714,
+            "silent_error_rate": 0.21904761904761905,
+            "cascade_precision": 0.7575757575757576,
+            "regret_cascade_rate": 0.11428571428571428
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5904761904761905,
+            "macro_accuracy": 0.5097364627215373,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.577922077922078,
+            "avg_latency_ms": 3862.285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5142857142857142,
+            "macro_accuracy": 0.44483941051105225,
+            "cascade_rate": 0.4714285714285714,
+            "llm_cond_accuracy": 0.43434343434343436,
+            "avg_latency_ms": 3318.2238095238095
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.2571428571428571,
+            "macro_accuracy": 0.24369738772723845
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3952380952380952,
+            "macro_accuracy": 0.31362357108625766
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.4297088953805371
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.35714285714285715,
+            "macro_accuracy": 0.24505849132714805
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.3169362326078744,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1,
+            "cascade_precision": 0.6298701298701299,
+            "regret_cascade_rate": 0.2714285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3904761904761905,
+            "macro_accuracy": 0.2679390642077209,
+            "cascade_rate": 0.5190476190476191,
+            "silent_error_rate": 0.22380952380952382,
+            "cascade_precision": 0.7431192660550459,
+            "regret_cascade_rate": 0.13333333333333333
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5904761904761905,
+            "macro_accuracy": 0.5097364627215373,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.577922077922078,
+            "avg_latency_ms": 3862.285714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.49047619047619045,
+            "macro_accuracy": 0.40113076829494737,
+            "cascade_rate": 0.5190476190476191,
+            "llm_cond_accuracy": 0.44954128440366975,
+            "avg_latency_ms": 3604.890476190476
+          }
+        }
+      }
+    }
+  },
+  "complexity_tier": {
+    "k8": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.23809523809523808,
+            "macro_accuracy": 0.2876010985031386
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5047619047619047,
+            "macro_accuracy": 0.3716164694994366
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5666666666666667,
+            "macro_accuracy": 0.400565346853372
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5380952380952381,
+            "macro_accuracy": 0.2749451754385965
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.37645964107516494,
+            "cascade_rate": 0.7571428571428571,
+            "silent_error_rate": 0.08571428571428572,
+            "cascade_precision": 0.5220125786163522,
+            "regret_cascade_rate": 0.3619047619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5619047619047619,
+            "macro_accuracy": 0.3241041968453243,
+            "cascade_rate": 0.36666666666666664,
+            "silent_error_rate": 0.18571428571428572,
+            "cascade_precision": 0.6883116883116883,
+            "regret_cascade_rate": 0.11428571428571428
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.638095238095238,
+            "macro_accuracy": 0.5160615845807179,
+            "cascade_rate": 0.7571428571428571,
+            "llm_cond_accuracy": 0.6352201257861635,
+            "avg_latency_ms": 4420.147619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6333333333333333,
+            "macro_accuracy": 0.46911516175760504,
+            "cascade_rate": 0.36666666666666664,
+            "llm_cond_accuracy": 0.5064935064935064,
+            "avg_latency_ms": 2578.347619047619
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.23809523809523808,
+            "macro_accuracy": 0.2876010985031386
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.3212603613391276
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5666666666666667,
+            "macro_accuracy": 0.400565346853372
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4857142857142857,
+            "macro_accuracy": 0.256888781586995
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.37645964107516494,
+            "cascade_rate": 0.7571428571428571,
+            "silent_error_rate": 0.08571428571428572,
+            "cascade_precision": 0.5220125786163522,
+            "regret_cascade_rate": 0.3619047619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5142857142857142,
+            "macro_accuracy": 0.29379476500885243,
+            "cascade_rate": 0.4142857142857143,
+            "silent_error_rate": 0.1761904761904762,
+            "cascade_precision": 0.7471264367816092,
+            "regret_cascade_rate": 0.10476190476190476
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.638095238095238,
+            "macro_accuracy": 0.5160615845807179,
+            "cascade_rate": 0.7571428571428571,
+            "llm_cond_accuracy": 0.6352201257861635,
+            "avg_latency_ms": 4420.147619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6333333333333333,
+            "macro_accuracy": 0.4677717085144053,
+            "cascade_rate": 0.4142857142857143,
+            "llm_cond_accuracy": 0.5402298850574713,
+            "avg_latency_ms": 2990.152380952381
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.23809523809523808,
+            "macro_accuracy": 0.2876010985031386
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5333333333333333,
+            "macro_accuracy": 0.37835133993239983
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5666666666666667,
+            "macro_accuracy": 0.400565346853372
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5095238095238095,
+            "macro_accuracy": 0.31730544825366164
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.37645964107516494,
+            "cascade_rate": 0.7571428571428571,
+            "silent_error_rate": 0.08571428571428572,
+            "cascade_precision": 0.5220125786163522,
+            "regret_cascade_rate": 0.3619047619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5571428571428572,
+            "macro_accuracy": 0.3462714268469338,
+            "cascade_rate": 0.4,
+            "silent_error_rate": 0.18571428571428572,
+            "cascade_precision": 0.6428571428571429,
+            "regret_cascade_rate": 0.14285714285714285
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.638095238095238,
+            "macro_accuracy": 0.5160615845807179,
+            "cascade_rate": 0.7571428571428571,
+            "llm_cond_accuracy": 0.6352201257861635,
+            "avg_latency_ms": 4420.147619047619
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.6714285714285714,
+            "macro_accuracy": 0.54089861982939,
+            "cascade_rate": 0.4,
+            "llm_cond_accuracy": 0.6428571428571429,
+            "avg_latency_ms": 2778.0857142857144
+          }
+        }
+      }
+    },
+    "cpython": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.36666666666666664,
+            "macro_accuracy": 0.32242570941420046
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.2904761904761905,
+            "macro_accuracy": 0.2714803312629399
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.48026656314699795
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4142857142857143,
+            "macro_accuracy": 0.38900940811107054
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.42534024479356963,
+            "cascade_rate": 0.6666666666666666,
+            "silent_error_rate": 0.13333333333333333,
+            "cascade_precision": 0.5785714285714286,
+            "regret_cascade_rate": 0.28095238095238095
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4095238095238095,
+            "macro_accuracy": 0.38712169650468886,
+            "cascade_rate": 0.580952380952381,
+            "silent_error_rate": 0.23809523809523808,
+            "cascade_precision": 0.6065573770491803,
+            "regret_cascade_rate": 0.22857142857142856
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.5926196565582755,
+            "cascade_rate": 0.6666666666666666,
+            "llm_cond_accuracy": 0.6071428571428571,
+            "avg_latency_ms": 3985.785714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.5076536049202289,
+            "cascade_rate": 0.580952380952381,
+            "llm_cond_accuracy": 0.5819672131147541,
+            "avg_latency_ms": 3531.8714285714286
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.36666666666666664,
+            "macro_accuracy": 0.32242570941420046
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3142857142857143,
+            "macro_accuracy": 0.29616520521251977
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.48026656314699795
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.319047619047619,
+            "macro_accuracy": 0.32573301059554255
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.42534024479356963,
+            "cascade_rate": 0.6666666666666666,
+            "silent_error_rate": 0.13333333333333333,
+            "cascade_precision": 0.5785714285714286,
+            "regret_cascade_rate": 0.28095238095238095
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.34285714285714286,
+            "macro_accuracy": 0.3338737668980636,
+            "cascade_rate": 0.5619047619047619,
+            "silent_error_rate": 0.26666666666666666,
+            "cascade_precision": 0.6949152542372882,
+            "regret_cascade_rate": 0.17142857142857143
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.5926196565582755,
+            "cascade_rate": 0.6666666666666666,
+            "llm_cond_accuracy": 0.6071428571428571,
+            "avg_latency_ms": 3985.785714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5380952380952381,
+            "macro_accuracy": 0.5159504018998904,
+            "cascade_rate": 0.5619047619047619,
+            "llm_cond_accuracy": 0.652542372881356,
+            "avg_latency_ms": 3630.1714285714284
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.36666666666666664,
+            "macro_accuracy": 0.32242570941420046
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3476190476190476,
+            "macro_accuracy": 0.3216873706004141
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.48026656314699795
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4523809523809524,
+            "macro_accuracy": 0.4062842528315674
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.48095238095238096,
+            "macro_accuracy": 0.42534024479356963,
+            "cascade_rate": 0.6666666666666666,
+            "silent_error_rate": 0.13333333333333333,
+            "cascade_precision": 0.5785714285714286,
+            "regret_cascade_rate": 0.28095238095238095
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4523809523809524,
+            "macro_accuracy": 0.3968837535014006,
+            "cascade_rate": 0.6095238095238096,
+            "silent_error_rate": 0.22857142857142856,
+            "cascade_precision": 0.5234375,
+            "regret_cascade_rate": 0.2904761904761905
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.6047619047619047,
+            "macro_accuracy": 0.5926196565582755,
+            "cascade_rate": 0.6666666666666666,
+            "llm_cond_accuracy": 0.6071428571428571,
+            "avg_latency_ms": 3985.785714285714
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5714285714285714,
+            "macro_accuracy": 0.550085251491901,
+            "cascade_rate": 0.6095238095238096,
+            "llm_cond_accuracy": 0.671875,
+            "avg_latency_ms": 3918.138095238095
+          }
+        }
+      }
+    },
+    "vscode": {
+      "20260901": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.269422120491867
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3047619047619048,
+            "macro_accuracy": 0.26227906612435525
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.44761904761904764,
+            "macro_accuracy": 0.40136076559229944
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5428571428571428,
+            "macro_accuracy": 0.42052339478853573
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4523809523809524,
+            "macro_accuracy": 0.37478488425166767,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1619047619047619,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5190476190476191,
+            "macro_accuracy": 0.3997211243383113,
+            "cascade_rate": 0.6761904761904762,
+            "silent_error_rate": 0.13333333333333333,
+            "cascade_precision": 0.5140845070422535,
+            "regret_cascade_rate": 0.32857142857142857
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4666666666666667,
+            "macro_accuracy": 0.4212480545196565,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.4935064935064935,
+            "avg_latency_ms": 4207.557142857143
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4666666666666667,
+            "macro_accuracy": 0.4636250116926045,
+            "cascade_rate": 0.6761904761904762,
+            "llm_cond_accuracy": 0.4084507042253521,
+            "avg_latency_ms": 4193.457142857143
+          }
+        }
+      },
+      "20260902": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.269422120491867
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.3142857142857143,
+            "macro_accuracy": 0.2767780366116579
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.44761904761904764,
+            "macro_accuracy": 0.40136076559229944
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5333333333333333,
+            "macro_accuracy": 0.4375606465813078
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4523809523809524,
+            "macro_accuracy": 0.37478488425166767,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1619047619047619,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4666666666666667,
+            "macro_accuracy": 0.37763787975607255,
+            "cascade_rate": 0.6666666666666666,
+            "silent_error_rate": 0.1619047619047619,
+            "cascade_precision": 0.5571428571428572,
+            "regret_cascade_rate": 0.29523809523809524
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4666666666666667,
+            "macro_accuracy": 0.4212480545196565,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.4935064935064935,
+            "avg_latency_ms": 4207.557142857143
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.42857142857142855,
+            "macro_accuracy": 0.4180061038213122,
+            "cascade_rate": 0.6666666666666666,
+            "llm_cond_accuracy": 0.38571428571428573,
+            "avg_latency_ms": 4105.304761904762
+          }
+        }
+      },
+      "20260903": {
+        "kw": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.3619047619047619,
+            "macro_accuracy": 0.269422120491867
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.29523809523809524,
+            "macro_accuracy": 0.25061026943141823
+          }
+        },
+        "sem": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.44761904761904764,
+            "macro_accuracy": 0.40136076559229944
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.5095238095238095,
+            "macro_accuracy": 0.39924975741367474
+          }
+        },
+        "pre": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4523809523809524,
+            "macro_accuracy": 0.37478488425166767,
+            "cascade_rate": 0.7333333333333333,
+            "silent_error_rate": 0.1619047619047619,
+            "cascade_precision": 0.525974025974026,
+            "regret_cascade_rate": 0.3476190476190476
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.47619047619047616,
+            "macro_accuracy": 0.3676809930655811,
+            "cascade_rate": 0.7095238095238096,
+            "silent_error_rate": 0.13333333333333333,
+            "cascade_precision": 0.5503355704697986,
+            "regret_cascade_rate": 0.319047619047619
+          }
+        },
+        "router": {
+          "base": {
+            "n": 210,
+            "accuracy": 0.4666666666666667,
+            "macro_accuracy": 0.4212480545196565,
+            "cascade_rate": 0.7333333333333333,
+            "llm_cond_accuracy": 0.4935064935064935,
+            "avg_latency_ms": 4207.557142857143
+          },
+          "learn": {
+            "n": 210,
+            "accuracy": 0.4380952380952381,
+            "macro_accuracy": 0.4326869436151617,
+            "cascade_rate": 0.7095238095238096,
+            "llm_cond_accuracy": 0.3959731543624161,
+            "avg_latency_ms": 4338.480952380953
+          }
+        }
+      }
+    }
+  }
+}

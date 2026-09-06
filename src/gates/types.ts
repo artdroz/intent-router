@@ -1,3 +1,12 @@
+/**
+ * Per-gate configuration.
+ *
+ * `learningEnabled` gates the READ side of online learning only: when false,
+ * the cheap classifiers ignore promoted keywords and learnt embeddings/guardrails
+ * (see KeywordClassifier and SemanticClassifier). Feedback ingestion and the
+ * keyword-promotion cron are intentionally NOT gated here, so a gate that is
+ * later re-enabled resumes from the evidence gathered while it was off.
+ */
 export type GateConfig = {
   learningEnabled: boolean;
 };

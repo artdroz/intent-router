@@ -1,0 +1,31 @@
+# Test fixture for the end-to-end suite: a single tenant-visible gate plus a
+# model -> gate mapping for the OpenAI-compatible lane. Used in place of the
+# production config/default-gates.yaml.
+
+models:
+  ops: ops
+
+gates:
+  - name: ops
+    description: "Routes operations tasks."
+    config:
+      learningEnabled: true
+    classes:
+      - label: deploy
+        description: "Shipping code to production."
+        utterances:
+          - "deploy the application to production"
+          - "ship a release to production"
+        keywords:
+          - deploy
+          - ship
+          - rollout
+      - label: debug
+        description: "Investigating and fixing defects."
+        utterances:
+          - "debug a failing test"
+          - "trace an error in the logs"
+        keywords:
+          - debug
+          - fix
+          - error

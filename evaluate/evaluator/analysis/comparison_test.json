@@ -1,0 +1,684 @@
+{
+  "request_type": {
+    "keyword": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.361905,
+          "macro_accuracy": 0.301544,
+          "latency_mean": 2.0,
+          "latency_p50": 2.0,
+          "latency_p90": 2.0,
+          "ece": 0.243211,
+          "avg_conf_correct": 0.618303,
+          "avg_conf_incorrect": 0.566134
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.557143,
+          "macro_accuracy": 0.288596,
+          "latency_mean": 2.0,
+          "latency_p50": 2.0,
+          "latency_p90": 2.0,
+          "ece": 0.227582,
+          "avg_conf_correct": 0.733194,
+          "avg_conf_incorrect": 0.565966
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.257143,
+          "macro_accuracy": 0.243697,
+          "latency_mean": 2.0,
+          "latency_p50": 2.0,
+          "latency_p90": 2.0,
+          "ece": 0.347541,
+          "avg_conf_correct": 0.680849,
+          "avg_conf_incorrect": 0.552678
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.392063,
+        "macro_accuracy": 0.322438,
+        "latency_mean": 2.0,
+        "latency_p50": 2.0,
+        "latency_p90": 2.0,
+        "ece": 0.256286,
+        "avg_conf_correct": 0.686399,
+        "avg_conf_incorrect": 0.560612
+      }
+    },
+    "semantic": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.480952,
+          "macro_accuracy": 0.381194,
+          "latency_mean": 513.271429,
+          "latency_p50": 511.0,
+          "latency_p90": 696.2,
+          "ece": 0.111909,
+          "avg_conf_correct": 0.466511,
+          "avg_conf_incorrect": 0.446306
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.604762,
+          "macro_accuracy": 0.337114,
+          "latency_mean": 503.3,
+          "latency_p50": 510.5,
+          "latency_p90": 677.1,
+          "ece": 0.126482,
+          "avg_conf_correct": 0.592225,
+          "avg_conf_incorrect": 0.459972
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.438095,
+          "macro_accuracy": 0.429709,
+          "latency_mean": 506.480952,
+          "latency_p50": 510.0,
+          "latency_p90": 663.1,
+          "ece": 0.106762,
+          "avg_conf_correct": 0.478487,
+          "avg_conf_incorrect": 0.411818
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.507937,
+        "macro_accuracy": 0.396866,
+        "latency_mean": 507.684127,
+        "latency_p50": 511.0,
+        "latency_p90": 677.0,
+        "ece": 0.079139,
+        "avg_conf_correct": 0.519847,
+        "avg_conf_incorrect": 0.436837
+      }
+    },
+    "llm": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.657143,
+          "macro_accuracy": 0.608093,
+          "latency_mean": 5130.704762,
+          "latency_p50": 4192.0,
+          "latency_p90": 9841.3,
+          "ece": 0.342857,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.704762,
+          "macro_accuracy": 0.505097,
+          "latency_mean": 4494.509524,
+          "latency_p50": 3178.0,
+          "latency_p90": 8456.1,
+          "ece": 0.295238,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.604762,
+          "macro_accuracy": 0.519961,
+          "latency_mean": 4440.942857,
+          "latency_p50": 3366.0,
+          "latency_p90": 8325.3,
+          "ece": 0.395238,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.655556,
+        "macro_accuracy": 0.606778,
+        "latency_mean": 4688.719048,
+        "latency_p50": 3507.0,
+        "latency_p90": 8575.8,
+        "ece": 0.344444,
+        "avg_conf_correct": 1.0,
+        "avg_conf_incorrect": 1.0
+      }
+    },
+    "precascade": {
+      "kind": "precascade",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.52381,
+          "macro_accuracy": 0.436814,
+          "latency_mean": 505.771429,
+          "latency_p50": 512.0,
+          "latency_p90": 652.1,
+          "ece": 0.111045,
+          "avg_conf_correct": 0.442302,
+          "avg_conf_incorrect": 0.416625,
+          "cascade_rate": 0.733333,
+          "silent_error_rate": 0.090476,
+          "cascade_precision": 0.525974,
+          "regret_cascade_rate": 0.347619
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.657143,
+          "macro_accuracy": 0.349904,
+          "latency_mean": 509.157143,
+          "latency_p50": 511.5,
+          "latency_p90": 686.3,
+          "ece": 0.108949,
+          "avg_conf_correct": 0.604581,
+          "avg_conf_incorrect": 0.481656,
+          "cascade_rate": 0.485714,
+          "silent_error_rate": 0.1,
+          "cascade_precision": 0.5,
+          "regret_cascade_rate": 0.242857
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.438095,
+          "macro_accuracy": 0.316936,
+          "latency_mean": 501.504762,
+          "latency_p50": 510.5,
+          "latency_p90": 637.4,
+          "ece": 0.127391,
+          "avg_conf_correct": 0.472787,
+          "avg_conf_incorrect": 0.392828,
+          "cascade_rate": 0.733333,
+          "silent_error_rate": 0.1,
+          "cascade_precision": 0.62987,
+          "regret_cascade_rate": 0.271429
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.539683,
+        "macro_accuracy": 0.413209,
+        "latency_mean": 505.477778,
+        "latency_p50": 511.0,
+        "latency_p90": 659.0,
+        "ece": 0.076874,
+        "avg_conf_correct": 0.516417,
+        "avg_conf_incorrect": 0.423088,
+        "cascade_rate": 0.650794,
+        "silent_error_rate": 0.096825,
+        "cascade_precision": 0.558537,
+        "regret_cascade_rate": 0.287302
+      }
+    },
+    "cascade": {
+      "kind": "cascade",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.666667,
+          "macro_accuracy": 0.584832,
+          "latency_mean": 4129.371429,
+          "latency_p50": 3495.0,
+          "latency_p90": 8822.2,
+          "cascade_rate": 0.733333,
+          "llm_cond_accuracy": 0.668831,
+          "avg_llm_latency": 5101.194805,
+          "avg_pre_latency": 388.495238
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.7,
+          "macro_accuracy": 0.515929,
+          "latency_mean": 2935.471429,
+          "latency_p50": 821.0,
+          "latency_p90": 7856.6,
+          "cascade_rate": 0.485714,
+          "llm_cond_accuracy": 0.588235,
+          "avg_llm_latency": 5137.588235,
+          "avg_pre_latency": 440.071429
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.590476,
+          "macro_accuracy": 0.509736,
+          "latency_mean": 3862.285714,
+          "latency_p50": 3437.0,
+          "latency_p90": 8018.3,
+          "cascade_rate": 0.733333,
+          "llm_cond_accuracy": 0.577922,
+          "avg_llm_latency": 4731.733766,
+          "avg_pre_latency": 392.347619
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.652381,
+        "macro_accuracy": 0.597627,
+        "latency_mean": 3642.37619,
+        "latency_p50": 3273.5,
+        "latency_p90": 8296.7,
+        "cascade_rate": 0.650794,
+        "llm_cond_accuracy": 0.614634,
+        "avg_llm_latency": 4971.47561,
+        "avg_pre_latency": 406.971429
+      }
+    },
+    "adaptive_router": {
+      "kind": "litellm",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.128571,
+          "macro_accuracy": 0.137755,
+          "latency_mean": 0.413343,
+          "latency_p50": 0.4115,
+          "latency_p90": 0.7163
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.119048,
+          "macro_accuracy": 0.137363,
+          "latency_mean": 0.659705,
+          "latency_p50": 0.6615,
+          "latency_p90": 1.0775
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.314286,
+          "macro_accuracy": 0.169078,
+          "latency_mean": 0.51369,
+          "latency_p50": 0.459,
+          "latency_p90": 0.8802
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.187302,
+        "macro_accuracy": 0.140322,
+        "latency_mean": 0.528913,
+        "latency_p50": 0.46,
+        "latency_p90": 0.9252
+      }
+    },
+    "auto_router": {
+      "kind": "litellm",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.133333,
+          "macro_accuracy": 0.142857,
+          "latency_mean": 679.683395,
+          "latency_p50": 633.4155,
+          "latency_p90": 769.9056
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.12381,
+          "macro_accuracy": 0.142857,
+          "latency_mean": 665.357424,
+          "latency_p50": 631.128,
+          "latency_p90": 769.3088
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.309524,
+          "macro_accuracy": 0.166667,
+          "latency_mean": 662.167752,
+          "latency_p50": 624.6695,
+          "latency_p90": 755.4362
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.188889,
+        "macro_accuracy": 0.142857,
+        "latency_mean": 669.069524,
+        "latency_p50": 631.3105,
+        "latency_p90": 767.3772
+      }
+    }
+  },
+  "complexity_tier": {
+    "keyword": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.238095,
+          "macro_accuracy": 0.287601,
+          "latency_mean": 1.009524,
+          "latency_p50": 1.0,
+          "latency_p90": 1.0,
+          "ece": 0.43215,
+          "avg_conf_correct": 0.672619,
+          "avg_conf_incorrect": 0.568003
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.366667,
+          "macro_accuracy": 0.322426,
+          "latency_mean": 1.028571,
+          "latency_p50": 1.0,
+          "latency_p90": 1.0,
+          "ece": 0.43892,
+          "avg_conf_correct": 0.391883,
+          "avg_conf_incorrect": 0.463211
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.361905,
+          "macro_accuracy": 0.269422,
+          "latency_mean": 1.014286,
+          "latency_p50": 1.0,
+          "latency_p90": 1.0,
+          "ece": 0.518806,
+          "avg_conf_correct": 0.49672,
+          "avg_conf_incorrect": 0.635811
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.322222,
+        "macro_accuracy": 0.297583,
+        "latency_mean": 1.01746,
+        "latency_p50": 1.0,
+        "latency_p90": 1.0,
+        "ece": 0.449874,
+        "avg_conf_correct": 0.500279,
+        "avg_conf_incorrect": 0.556642
+      }
+    },
+    "semantic": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.566667,
+          "macro_accuracy": 0.400565,
+          "latency_mean": 504.833333,
+          "latency_p50": 512.0,
+          "latency_p90": 645.5,
+          "ece": 0.095537,
+          "avg_conf_correct": 0.634699,
+          "avg_conf_incorrect": 0.52038
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.542857,
+          "macro_accuracy": 0.480267,
+          "latency_mean": 507.447619,
+          "latency_p50": 510.0,
+          "latency_p90": 661.4,
+          "ece": 0.13687,
+          "avg_conf_correct": 0.619589,
+          "avg_conf_incorrect": 0.580281
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.447619,
+          "macro_accuracy": 0.401361,
+          "latency_mean": 504.290476,
+          "latency_p50": 510.0,
+          "latency_p90": 679.2,
+          "ece": 0.166817,
+          "avg_conf_correct": 0.596186,
+          "avg_conf_incorrect": 0.579357
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.519048,
+        "macro_accuracy": 0.448198,
+        "latency_mean": 505.52381,
+        "latency_p50": 511.0,
+        "latency_p90": 662.1,
+        "ece": 0.095323,
+        "avg_conf_correct": 0.61836,
+        "avg_conf_incorrect": 0.561937
+      }
+    },
+    "llm": {
+      "kind": "classifier",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.642857,
+          "macro_accuracy": 0.550016,
+          "latency_mean": 4822.266667,
+          "latency_p50": 4092.5,
+          "latency_p90": 8299.7,
+          "ece": 0.357143,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.604762,
+          "macro_accuracy": 0.585168,
+          "latency_mean": 4529.309524,
+          "latency_p50": 3774.0,
+          "latency_p90": 7609.4,
+          "ece": 0.395238,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.561905,
+          "macro_accuracy": 0.528897,
+          "latency_mean": 4847.309524,
+          "latency_p50": 3799.5,
+          "latency_p90": 8647.5,
+          "ece": 0.438095,
+          "avg_conf_correct": 1.0,
+          "avg_conf_incorrect": 1.0
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.603175,
+        "macro_accuracy": 0.555981,
+        "latency_mean": 4732.961905,
+        "latency_p50": 3850.5,
+        "latency_p90": 8298.1,
+        "ece": 0.396825,
+        "avg_conf_correct": 1.0,
+        "avg_conf_incorrect": 1.0
+      }
+    },
+    "precascade": {
+      "kind": "precascade",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.519048,
+          "macro_accuracy": 0.37646,
+          "latency_mean": 504.052381,
+          "latency_p50": 512.0,
+          "latency_p90": 635.1,
+          "ece": 0.143197,
+          "avg_conf_correct": 0.571899,
+          "avg_conf_incorrect": 0.503044,
+          "cascade_rate": 0.757143,
+          "silent_error_rate": 0.085714,
+          "cascade_precision": 0.522013,
+          "regret_cascade_rate": 0.361905
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.480952,
+          "macro_accuracy": 0.42534,
+          "latency_mean": 501.704762,
+          "latency_p50": 512.0,
+          "latency_p90": 684.0,
+          "ece": 0.142457,
+          "avg_conf_correct": 0.619288,
+          "avg_conf_incorrect": 0.549096,
+          "cascade_rate": 0.666667,
+          "silent_error_rate": 0.133333,
+          "cascade_precision": 0.578571,
+          "regret_cascade_rate": 0.280952
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.452381,
+          "macro_accuracy": 0.374785,
+          "latency_mean": 502.361905,
+          "latency_p50": 510.5,
+          "latency_p90": 664.4,
+          "ece": 0.163141,
+          "avg_conf_correct": 0.566187,
+          "avg_conf_incorrect": 0.574155,
+          "cascade_rate": 0.733333,
+          "silent_error_rate": 0.161905,
+          "cascade_precision": 0.525974,
+          "regret_cascade_rate": 0.347619
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.484127,
+        "macro_accuracy": 0.413646,
+        "latency_mean": 502.706349,
+        "latency_p50": 511.0,
+        "latency_p90": 668.0,
+        "ece": 0.107193,
+        "avg_conf_correct": 0.585813,
+        "avg_conf_incorrect": 0.543652,
+        "cascade_rate": 0.719048,
+        "silent_error_rate": 0.126984,
+        "cascade_precision": 0.540839,
+        "regret_cascade_rate": 0.330159
+      }
+    },
+    "cascade": {
+      "kind": "cascade",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.638095,
+          "macro_accuracy": 0.516062,
+          "latency_mean": 4420.147619,
+          "latency_p50": 4300.5,
+          "latency_p90": 8266.0,
+          "cascade_rate": 0.757143,
+          "llm_cond_accuracy": 0.63522,
+          "avg_llm_latency": 5351.496855,
+          "avg_pre_latency": 368.3
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.604762,
+          "macro_accuracy": 0.59262,
+          "latency_mean": 3985.785714,
+          "latency_p50": 3628.0,
+          "latency_p90": 9054.2,
+          "cascade_rate": 0.666667,
+          "llm_cond_accuracy": 0.607143,
+          "avg_llm_latency": 5374.235714,
+          "avg_pre_latency": 402.961905
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.466667,
+          "macro_accuracy": 0.421248,
+          "latency_mean": 4207.557143,
+          "latency_p50": 3888.5,
+          "latency_p90": 8346.0,
+          "cascade_rate": 0.733333,
+          "llm_cond_accuracy": 0.493506,
+          "avg_llm_latency": 5211.162338,
+          "avg_pre_latency": 386.038095
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.569841,
+        "macro_accuracy": 0.512305,
+        "latency_mean": 4204.496825,
+        "latency_p50": 3992.5,
+        "latency_p90": 8367.5,
+        "cascade_rate": 0.719048,
+        "llm_cond_accuracy": 0.578366,
+        "avg_llm_latency": 5310.816777,
+        "avg_pre_latency": 385.766667
+      }
+    },
+    "complexity_router_heuristic": {
+      "kind": "litellm",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.2,
+          "macro_accuracy": 0.279752,
+          "latency_mean": 2.408838,
+          "latency_p50": 1.5075,
+          "latency_p90": 5.8338
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.219048,
+          "macro_accuracy": 0.216333,
+          "latency_mean": 3.324938,
+          "latency_p50": 2.109,
+          "latency_p90": 7.1086
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.309524,
+          "macro_accuracy": 0.289508,
+          "latency_mean": 2.334867,
+          "latency_p50": 1.805,
+          "latency_p90": 5.2456
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.242857,
+        "macro_accuracy": 0.271336,
+        "latency_mean": 2.689548,
+        "latency_p50": 1.867,
+        "latency_p90": 5.8196
+      }
+    },
+    "complexity_router_llm": {
+      "kind": "litellm",
+      "by_dataset": {
+        "k8": {
+          "n": 210,
+          "accuracy": 0.204762,
+          "macro_accuracy": 0.256442,
+          "latency_mean": 10486.558419,
+          "latency_p50": 6144.4285,
+          "latency_p90": 13982.4221
+        },
+        "cpython": {
+          "n": 210,
+          "accuracy": 0.27619,
+          "macro_accuracy": 0.255724,
+          "latency_mean": 12651.989852,
+          "latency_p50": 5695.7335,
+          "latency_p90": 55453.2929
+        },
+        "vscode": {
+          "n": 210,
+          "accuracy": 0.347619,
+          "macro_accuracy": 0.261911,
+          "latency_mean": 12689.886276,
+          "latency_p50": 4914.427,
+          "latency_p90": 55699.4403
+        }
+      },
+      "pooled": {
+        "n": 630,
+        "accuracy": 0.27619,
+        "macro_accuracy": 0.26586,
+        "latency_mean": 11942.811516,
+        "latency_p50": 5629.6115,
+        "latency_p90": 54978.2251
+      }
+    }
+  }
+}

@@ -10,15 +10,21 @@
  * Prerequisite: runs/{dataset}/{gate}/pre-cascade/*.val.jsonl must exist (run
  *   pre-cascade.ts with --split val first).
  *
+ * The full SweepResult[] surface is persisted to evaluate/runs/thresholds/ as
+ * threshold-sweep_wErr{..}_wDoubt{..}_step{..}.json so it can be plotted later.
+ *
  * Usage:
  *   npx tsx evaluate/evaluator/runner/tune-thresholds.ts
  *   npx tsx evaluate/evaluator/runner/tune-thresholds.ts \
- *     --w-error 2.0 --w-doubt 1.0 --dataset k8,cpython --label-field adaptive_label
+ *     --w-error 2.0 --w-doubt 1.0 --dataset k8,cpython,vscode \
+ *     --label-field adaptive_label,complexity_label
  *
  *   --w-error       weight for silent errors (default: 1.0)
  *   --w-doubt       weight for regret cascades (default: 2.0)
  *   --dataset       k8,cpython,vscode (comma-separated, required)
- *   --label-field   adaptive_label | complexity_label (default: adaptive_label)
+ *   --label-field   adaptive_label | complexity_label | adaptive_label,complexity_label
+ *                   (comma-separated; all fields are pooled TOGETHER,
+ *                   default: adaptive_label)
  *   --file          only sweep files whose name (before .val.jsonl) starts with
  *                   this string (e.g. m0.3_H0.9_kw0.3_sem0.7)
  *   --margin-min    sweep start (default: 0)
@@ -29,7 +35,13 @@
  *   --top           combinations to show (default: 15)
  */
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import {
+  readFileSync,
+  readdirSync,
+  existsSync,
+  writeFileSync,
+  mkdirSync,
+} from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -41,6 +53,7 @@ import {
   DEFAULT_SWEEP_ENTROPY_MAX,
   DEFAULT_SWEEP_STEP,
   DEFAULT_SWEEP_TOP,
+  RUNS_THRESHOLDS,
 } from "../config.js";
 import { gateNameFor } from "./shared.js";
 
@@ -74,6 +87,8 @@ interface SweepResult {
   silentErrorRate: number;
   cost: number;
   datasets: string[];
+  gates: string[];
+  labelFields: string[];
 }
 
 // ── Load runs ──
@@ -81,27 +96,32 @@ interface SweepResult {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 const RUNS_DIR = resolve(__dirname, "../../runs");
+// RUNS_THRESHOLDS is repo-root-relative ("evaluate/runs/thresholds"); resolve it
+// against the repo root (three levels up from this file) so cwd doesn't matter.
+const THRESHOLDS_DIR = resolve(__dirname, "../../..", RUNS_THRESHOLDS);
 
 function findValRuns(
   datasetFilter: string[] | undefined,
-  gateName: string,
+  gateNames: string[],
   fileFilter?: string,
-): Array<{ dataset: string; filePath: string; paramTag: string }> {
-  const runs: Array<{ dataset: string; filePath: string; paramTag: string }> = [];
+): Array<{ dataset: string; gate: string; filePath: string; paramTag: string }> {
+  const runs: Array<{ dataset: string; gate: string; filePath: string; paramTag: string }> = [];
   const datasets = readdirSync(RUNS_DIR, { withFileTypes: true })
     .filter((d) => d.isDirectory())
     .map((d) => d.name);
 
   for (const ds of datasets) {
     if (datasetFilter && !datasetFilter.includes(ds)) continue;
-    const preDir = join(RUNS_DIR, ds, gateName, "pre-cascade");
-    if (!existsSync(preDir)) continue;
+    for (const gate of gateNames) {
+      const preDir = join(RUNS_DIR, ds, gate, "pre-cascade");
+      if (!existsSync(preDir)) continue;
 
-    const files = readdirSync(preDir).filter((f) => f.endsWith(".val.jsonl"));
-    for (const file of files) {
-      const paramTag = file.replace(".val.jsonl", "");
-      if (fileFilter && !paramTag.startsWith(fileFilter)) continue;
-      runs.push({ dataset: ds, filePath: join(preDir, file), paramTag });
+      const files = readdirSync(preDir).filter((f) => f.endsWith(".val.jsonl"));
+      for (const file of files) {
+        const paramTag = file.replace(".val.jsonl", "");
+        if (fileFilter && !paramTag.startsWith(fileFilter)) continue;
+        runs.push({ dataset: ds, gate, filePath: join(preDir, file), paramTag });
+      }
     }
   }
   return runs;
@@ -113,6 +133,29 @@ function loadRun(filePath: string): PreCascadeRow[] {
     .split("\n")
     .filter(Boolean)
     .map((line) => JSON.parse(line) as PreCascadeRow);
+}
+
+interface SweepMeta {
+  wError: number;
+  wDoubt: number;
+  step: number;
+  marginMin: number;
+  marginMax: number;
+  entropyMin: number;
+  entropyMax: number;
+  labelFields: string[];
+  gates: string[];
+  datasets: string[];
+  totalRows: number;
+  generatedAt: string;
+}
+
+function writeToJson(results: SweepResult[], meta: SweepMeta): string {
+  mkdirSync(THRESHOLDS_DIR, { recursive: true });
+  const fileName = `threshold-sweep_wErr${meta.wError}_wDoubt${meta.wDoubt}_step${meta.step}.json`;
+  const outPath = join(THRESHOLDS_DIR, fileName);
+  writeFileSync(outPath, JSON.stringify({ meta, results }, null, 2));
+  return outPath;
 }
 
 // ── CLI ──
@@ -135,6 +178,8 @@ function parseArgs(): Record<string, string> {
 function sweep(
   rows: PreCascadeRow[],
   datasets: string[],
+  gates: string[],
+  labelFields: string[],
   wError: number,
   wDoubt: number,
   marginMin: number,
@@ -191,6 +236,8 @@ function sweep(
           silentErrorRate,
           cost,
           datasets,
+          gates,
+          labelFields,
         });
       }
     }
@@ -220,7 +267,12 @@ function main() {
     process.exit(1);
   }
 
-  const gateName = gateNameFor(raw["label-field"] || "adaptive_label");
+  // One or more label fields, pooled TOGETHER (e.g. adaptive_label,complexity_label).
+  const labelFields = (raw["label-field"] || "adaptive_label")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const gateNames = labelFields.map(gateNameFor);
   const fileFilter = raw.file ? raw.file.trim() : undefined;
 
   const marginMin = raw["margin-min"] ? parseFloat(raw["margin-min"]) : DEFAULT_SWEEP_MARGIN_MIN;
@@ -228,7 +280,7 @@ function main() {
   const entropyMin = raw["entropy-min"] ? parseFloat(raw["entropy-min"]) : DEFAULT_SWEEP_ENTROPY_MIN;
   const entropyMax = raw["entropy-max"] ? parseFloat(raw["entropy-max"]) : DEFAULT_SWEEP_ENTROPY_MAX;
 
-  const runs = findValRuns(datasetFilter, gateName, fileFilter);
+  const runs = findValRuns(datasetFilter, gateNames, fileFilter);
   if (runs.length === 0) {
     console.log(
       fileFilter
@@ -238,24 +290,27 @@ function main() {
     return;
   }
 
-  // Pool all rows across datasets
+  // Pool all rows across datasets AND gates (label fields) together.
   const allRows: PreCascadeRow[] = [];
   const allDatasets: string[] = [];
+  const allGates: string[] = [];
 
-  for (const { dataset, filePath } of runs) {
+  for (const { dataset, gate, filePath } of runs) {
     const rows = loadRun(filePath);
     allRows.push(...rows);
     if (!allDatasets.includes(dataset)) allDatasets.push(dataset);
+    if (!allGates.includes(gate)) allGates.push(gate);
   }
 
-  console.log(`Loaded ${allRows.length} val rows from ${runs.length} file(s) across ${allDatasets.length} dataset(s).`);
+  console.log(`Loaded ${allRows.length} val rows from ${runs.length} file(s) across ${allDatasets.length} dataset(s) and ${allGates.length} gate(s).`);
   console.log(`Datasets: ${allDatasets.join(", ")}`);
+  console.log(`Gates: ${allGates.join(", ")}`);
   console.log(`Weights: W_Error=${wError}  W_Doubt=${wDoubt}`);
   console.log(`Regret = (${wError} × SilentErr%) + (${wDoubt} × RegretCas%)`);
 
   // Sweep
   const results = sweep(
-    allRows, allDatasets, wError, wDoubt,
+    allRows, allDatasets, allGates, labelFields, wError, wDoubt,
     marginMin, marginMax, entropyMin, entropyMax, step,
   );
 
@@ -281,6 +336,23 @@ function main() {
   console.log(`    Silent Error Rate = ${(best.silentErrorRate * 100).toFixed(1)}%  |  Regret Cascade Rate = ${(best.regretCascadeRate * 100).toFixed(1)}%`);
   console.log(`    Accuracy = ${(best.accuracy * 100).toFixed(1)}%  (pre-cascade, non-cascaded only)`);
   console.log(`    CAS_MARGIN_THRESHOLD = ${best.margin}  |  CAS_ENTROPY_THRESHOLD = ${best.entropy}`);
+
+  // ── Persist the full sweep surface for plotting ──
+  const outPath = writeToJson(results, {
+    wError,
+    wDoubt,
+    step,
+    marginMin,
+    marginMax,
+    entropyMin,
+    entropyMax,
+    labelFields,
+    gates: allGates,
+    datasets: allDatasets,
+    totalRows: allRows.length,
+    generatedAt: new Date().toISOString(),
+  });
+  console.log(`\nSweep surface written to ${outPath}`);
 
   // ── Pareto frontier hint ──
   console.log(`\nTo explore trade-offs, try: --w-error 2.0 --w-doubt 1.0  (penalise errors more)`);

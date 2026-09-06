@@ -41,7 +41,11 @@ export class SemanticClassifier implements Classifier {
 
   async classify(prompt: string, gate: Gate, tenantId: string): Promise<ClassificationResult> {
     const embedding = await this.embedClient.embed(prompt);
-    const rows = await searchByGate(gate.name, tenantId, embedding, this.topK);
+    // Read side only: a learning-disabled gate searches config embeddings only.
+    const learningEnabled = gate.config?.learningEnabled !== false;
+    const rows = await searchByGate(gate.name, tenantId, embedding, this.topK, {
+      includeLearned: learningEnabled,
+    });
 
     // Explicit veto: a negative guardrail within the similarity threshold vetoes
     // its intent, removing it from the semantic distribution so the cascade falls
@@ -66,9 +70,7 @@ const NEG_FEEDBACK_SOURCE = "neg_feedback";
  * results. A guardrail fires only when its similarity (`1 - distance`) is at
  * or above the threshold — a distant guardrail must not veto anything.
  */
-export function detectVetoedLabels(
-  rows: SearchResult[],
-): Set<string> {
+export function detectVetoedLabels(rows: SearchResult[]): Set<string> {
   const minVotes = LRN_MIN_VOTES;
   const vetoThreshold = LRN_SEM_VETO_THRESHOLD;
   const margin = LRN_SEM_VETO_MARGIN;

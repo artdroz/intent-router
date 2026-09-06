@@ -3,11 +3,11 @@
   "classifier": "llm",
   "promptCount": 70,
   "accuracy": 0.6,
-  "macroAccuracy": 0.7176,
+  "macroAccuracy": 0.7468,
   "ece": 0.4,
   "avgConfidenceCorrect": 1,
   "avgConfidenceIncorrect": 1,
-  "avgLatencyMs": 4480,
+  "avgLatencyMs": 4770,
   "perClass": {
     "code_generation": {
       "total": 4,
@@ -16,8 +16,8 @@
     },
     "technical_design": {
       "total": 13,
-      "correct": 13,
-      "accuracy": 1
+      "correct": 11,
+      "accuracy": 0.8462
     },
     "general": {
       "total": 29,
@@ -26,13 +26,13 @@
     },
     "code_understanding": {
       "total": 20,
-      "correct": 19,
-      "accuracy": 0.95
+      "correct": 20,
+      "accuracy": 1
     },
     "factual_lookup": {
       "total": 4,
-      "correct": 3,
-      "accuracy": 0.75
+      "correct": 4,
+      "accuracy": 1
     }
   }
 }

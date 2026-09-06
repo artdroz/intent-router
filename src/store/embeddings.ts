@@ -77,9 +77,18 @@ export async function searchByGate(
   tenantId: string,
   embedding: number[],
   topK: number,
+  options: { includeLearned?: boolean } = {},
 ): Promise<SearchResult[]> {
   const db = getDb();
   const vectorStr = `[${embedding.join(",")}]`;
+
+  // Learning-disabled gates search only the shared configuration embeddings
+  // (tenant_id IS NULL); the tenant's learnt evidence (pos/neg feedback, with
+  // tenant_id set) is excluded from the candidate set.
+  const tenantFilter =
+    options.includeLearned === false
+      ? isNull(embeddingsTable.tenantId)
+      : or(eq(embeddingsTable.tenantId, tenantId), isNull(embeddingsTable.tenantId));
 
   const rows = await db
     .select({
@@ -87,12 +96,7 @@ export async function searchByGate(
       distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
     })
     .from(embeddingsTable)
-    .where(
-      and(
-        eq(embeddingsTable.gateName, gateName),
-        or(eq(embeddingsTable.tenantId, tenantId), isNull(embeddingsTable.tenantId)),
-      ),
-    )
+    .where(and(eq(embeddingsTable.gateName, gateName), tenantFilter))
     .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
     .limit(topK);
 

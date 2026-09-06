@@ -62,6 +62,7 @@ import {
   resolveLabelField,
   writeRun,
   shuffleDataset,
+  normalizeBaseUrl,
   type RouterPrompt,
 } from "./shared.js";
 import {
@@ -157,13 +158,13 @@ async function main() {
   // Shared singleton clients are required by service.submitFeedback() and
   // service.route() when they fetch the embed/LLM clients internally.
   initEmbedClient({
-    baseUrl: embeddingUrl,
+    baseUrl: normalizeBaseUrl(embeddingUrl),
     model: embeddingModel,
     apiKey: process.env.EMBED_API_KEY,
     dims: Number(process.env.EMBED_DIMS ?? 768),
   });
   initLlmClient({
-    baseUrl: llmUrl,
+    baseUrl: normalizeBaseUrl(llmUrl),
     model: llmModel,
     apiKey: process.env.LLM_API_KEY,
   });

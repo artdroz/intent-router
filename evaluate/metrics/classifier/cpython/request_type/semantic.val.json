@@ -1,18 +1,38 @@
 {
   "dataset": "cpython",
   "classifier": "semantic",
-  "promptCount": 1,
-  "accuracy": 0,
-  "macroAccuracy": 0,
-  "ece": 0.3119,
-  "avgConfidenceCorrect": 0,
-  "avgConfidenceIncorrect": 0.3119,
-  "avgLatencyMs": 396,
+  "promptCount": 70,
+  "accuracy": 0.6286,
+  "macroAccuracy": 0.5183,
+  "ece": 0.11,
+  "avgConfidenceCorrect": 0.6265,
+  "avgConfidenceIncorrect": 0.4555,
+  "avgLatencyMs": 506,
   "perClass": {
     "general": {
-      "total": 1,
-      "correct": 0,
-      "accuracy": 0
+      "total": 9,
+      "correct": 2,
+      "accuracy": 0.2222
+    },
+    "code_understanding": {
+      "total": 38,
+      "correct": 29,
+      "accuracy": 0.7632
+    },
+    "code_generation": {
+      "total": 11,
+      "correct": 3,
+      "accuracy": 0.2727
+    },
+    "technical_design": {
+      "total": 3,
+      "correct": 1,
+      "accuracy": 0.3333
+    },
+    "writing": {
+      "total": 9,
+      "correct": 9,
+      "accuracy": 1
     }
   }
 }

@@ -1,6 +1,35 @@
-import { describe, it, expect } from "vitest";
-import { aggregateSemantic, detectVetoedLabels } from "./semantic.js";
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { SemanticClassifier, aggregateSemantic, detectVetoedLabels } from "./semantic.js";
+import { searchByGate } from "../../store/embeddings.js";
 import type { SearchResult } from "../../store/embeddings.js";
+import type { Gate } from "../../gates/types.js";
+
+vi.mock("../../store/embeddings.js", () => ({
+  searchByGate: vi.fn(),
+}));
+
+const searchByGateMock = vi.mocked(searchByGate);
+
+const stubEmbedClient = {
+  embed: () => Promise.resolve([0.1, 0.2]),
+  dims: 2,
+};
+
+function makeLearningGate(learningEnabled: boolean): Gate {
+  return {
+    id: 1,
+    tenantId: "tenant-1",
+    name: "test",
+    description: null,
+    config: { learningEnabled },
+    classes: [
+      { id: 1, label: "a", utterances: ["a utterance"], keywords: [] },
+      { id: 2, label: "b", utterances: ["b utterance"], keywords: [] },
+    ],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
 
 function row(partial: Partial<SearchResult> & { label: string }): SearchResult {
   return {
@@ -53,6 +82,20 @@ describe("aggregateSemantic", () => {
     const result = aggregateSemantic([], 0.7, 1.0, 1.0);
 
     expect(result.entries.size).toBe(0);
+  });
+
+  it("spreads over all neighbours when nothing clears the similarity threshold", () => {
+    const rows = [
+      row({ label: "a", distance: 0.9 }), // sim 0.1 < 0.5
+      row({ label: "b", distance: 0.8 }), // sim 0.2 < 0.5
+    ];
+
+    const result = aggregateSemantic(rows, 0.5, 1.0, 1.0);
+
+    // Rather than collapsing to the single nearest neighbour or returning an
+    // empty result, the fallback spreads probability over all returned rows.
+    expect(result.entries.size).toBe(2);
+    expect(result.entries.get("b")!.prob).toBeGreaterThan(result.entries.get("a")!.prob);
   });
 
   it("collects matched content as evidence", () => {
@@ -133,5 +176,39 @@ describe("detectVetoedLabels", () => {
     ];
 
     expect(detectVetoedLabels(rows)).toEqual(new Set(["x", "y"]));
+  });
+});
+
+describe("SemanticClassifier learning gate", () => {
+  beforeEach(() => {
+    searchByGateMock.mockReset();
+    searchByGateMock.mockResolvedValue([]);
+  });
+
+  it("restricts the KNN search to config embeddings when learning is disabled", async () => {
+    const gate = makeLearningGate(false);
+    await new SemanticClassifier(stubEmbedClient).classify("prompt", gate, "tenant-1");
+
+    expect(searchByGateMock).toHaveBeenCalledTimes(1);
+    expect(searchByGateMock).toHaveBeenCalledWith(
+      "test",
+      "tenant-1",
+      [0.1, 0.2],
+      expect.any(Number),
+      { includeLearned: false },
+    );
+  });
+
+  it("includes learned embeddings when learning is enabled", async () => {
+    const gate = makeLearningGate(true);
+    await new SemanticClassifier(stubEmbedClient).classify("prompt", gate, "tenant-1");
+
+    expect(searchByGateMock).toHaveBeenCalledWith(
+      "test",
+      "tenant-1",
+      [0.1, 0.2],
+      expect.any(Number),
+      { includeLearned: true },
+    );
   });
 });

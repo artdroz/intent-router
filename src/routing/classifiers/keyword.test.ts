@@ -20,13 +20,13 @@ function makeClass(partial: Partial<GateClass> & { label: string }): GateClass {
   };
 }
 
-function makeGate(classes: GateClass[]): Gate {
+function makeGate(classes: GateClass[], config?: Gate["config"]): Gate {
   return {
     id: 1,
     tenantId: "tenant-1",
     name: "test",
     description: null,
-    config: { learningEnabled: true },
+    config: config ?? { learningEnabled: true },
     classes,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -122,5 +122,21 @@ describe("KeywordClassifier", () => {
     const result = await new KeywordClassifier().classify("ship it", gate, "tenant-1");
 
     expect(result.entries.get("deploy")!.prob).toBe(1);
+  });
+
+  it("ignores promoted keywords when learning is disabled", async () => {
+    const deploy = makeClass({ label: "deploy", keywords: [] });
+    const debug = makeClass({ label: "debug", keywords: [] });
+
+    getPromotedKeywordsMock.mockImplementation((classId) => {
+      if (classId === deploy.id) return Promise.resolve(["ship"]);
+      return Promise.resolve([]);
+    });
+
+    const gate = makeGate([deploy, debug], { learningEnabled: false });
+    const result = await new KeywordClassifier().classify("ship it", gate, "tenant-1");
+
+    expect(getPromotedKeywordsMock).not.toHaveBeenCalled();
+    expect(result.entries.get("deploy")!.prob).toBe(0);
   });
 });

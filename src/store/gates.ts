@@ -32,6 +32,7 @@ export async function createGate(tenantId: string | null, input: CreateGateInput
           gateId: gate.id,
           gateName: input.name,
           label: c.label,
+          description: c.description ?? null,
           utterances: c.utterances,
           keywords: c.keywords ?? [],
         })),
@@ -175,22 +176,27 @@ export async function updateClass(gateName: string, label: string, input: Update
     .where(and(eq(classesTable.gateId, gate.gate.id), eq(classesTable.label, label)));
   if (!c) return null;
 
-  await db
-    .update(classesTable)
-    .set({
-      ...(input.label !== undefined ? { label: input.label } : {}),
-      ...(input.utterances !== undefined ? { utterances: input.utterances } : {}),
-      ...(input.keywords !== undefined ? { keywords: input.keywords } : {}),
-      ...(input.description !== undefined ? { description: input.description } : {}),
-    })
-    .where(eq(classesTable.id, c.id));
+  // The class row and the denormalised `label` column on its embeddings must
+  // change atomically: a partial write would leave embeddings under a stale
+  // label that the semantic classifier aggregates by.
+  await db.transaction(async (tx) => {
+    await tx
+      .update(classesTable)
+      .set({
+        ...(input.label !== undefined ? { label: input.label } : {}),
+        ...(input.utterances !== undefined ? { utterances: input.utterances } : {}),
+        ...(input.keywords !== undefined ? { keywords: input.keywords } : {}),
+        ...(input.description !== undefined ? { description: input.description } : {}),
+      })
+      .where(eq(classesTable.id, c.id));
 
-  if (input.label && input.label !== label) {
-    await db
-      .update(embeddingsTable)
-      .set({ label: input.label })
-      .where(eq(embeddingsTable.classId, c.id));
-  }
+    if (input.label && input.label !== label) {
+      await tx
+        .update(embeddingsTable)
+        .set({ label: input.label })
+        .where(eq(embeddingsTable.classId, c.id));
+    }
+  });
 
   // Re-fetch updated row
   const [updated] = await db.select().from(classesTable).where(eq(classesTable.id, c.id));
@@ -208,6 +214,7 @@ export async function addClass(gateName: string, input: AddClassInput) {
       gateId: gate.gate.id,
       gateName,
       label: input.label,
+      description: input.description ?? null,
       utterances: input.utterances,
       keywords: input.keywords ?? [],
     })

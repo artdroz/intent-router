@@ -24,10 +24,12 @@ export class KeywordClassifier implements Classifier {
     const tokens = tokenize(prompt);
     const scores = new Map<string, number>();
     const evidence = new Map<string, string[]>();
+    // Read side only: a learning-disabled gate ignores promoted keywords.
+    const learningEnabled = gate.config?.learningEnabled !== false;
 
     for (const c of gate.classes) {
       const configMatched = matchedKeywords(tokens, c.keywords);
-      const promotedKeywords = await getPromotedKeywords(c.id, tenantId);
+      const promotedKeywords = learningEnabled ? await getPromotedKeywords(c.id, tenantId) : [];
       const promotedMatched = matchedKeywords(tokens, promotedKeywords);
       const configTotal = c.keywords.length;
       const feedbackTotal = promotedKeywords.length;

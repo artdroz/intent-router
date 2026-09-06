@@ -142,6 +142,7 @@ function toGateClass(c: ClassRow): GateClass {
   return {
     id: c.id,
     label: c.label,
+    description: c.description ?? undefined,
     utterances: c.utterances,
     keywords: c.keywords,
   };

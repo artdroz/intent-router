@@ -1,6 +1,7 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyError } from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
+import { ZodError } from "zod";
 import { initDb } from "./store/db.js";
 import { authPlugin } from "./auth/plugin.js";
 import { healthRoutes } from "./health/routes.js";
@@ -72,7 +73,23 @@ export async function buildApp() {
   // CORS
   await app.register(fastifyCors);
 
-  // TODO: app.setErrorHandler()
+  // Map errors to clean HTTP responses: validation → 400, missing resource →
+  // 404, anything else → 500 (logged). This gives the REST lane the same
+  // contract as the OpenAI-compatible lane.
+  app.setErrorHandler<FastifyError>((err, req, reply) => {
+    if (err instanceof ZodError) {
+      return reply.status(400).send({ error: "Bad request", details: err.issues });
+    }
+    if (/not found/i.test(err.message)) {
+      return reply.status(404).send({ error: err.message });
+    }
+    const status =
+      typeof err.statusCode === "number" && err.statusCode >= 400 ? err.statusCode : 500;
+    req.log.error(err);
+    return reply
+      .status(status)
+      .send({ error: status === 500 ? "Internal server error" : err.message });
+  });
 
   // Public health endpoints
   await app.register(healthRoutes);

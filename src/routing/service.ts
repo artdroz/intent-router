@@ -21,6 +21,11 @@ import {
 } from "./config.js";
 import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
 
+// Floating-point subtraction (e.g. 0.6 - 0.4) can land a hair below a decimal
+// threshold even when the margin is mathematically equal to it. This tolerance
+// keeps the LRN_NEG_MARGIN gate inclusive as documented.
+const MARGIN_EPSILON = 1e-9;
+
 // TOD0: handle large prompts gracefuly when embedding
 let _router: CascadingRouter | null = null;
 let _maxPromptLength = 50000;
@@ -136,7 +141,7 @@ async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInp
     // top-2 margin is too small (or unknown), so ambiguous errors can't veto intents.
     if (!input.positive) {
       const margin = topTwoMargin(event.scores);
-      if (margin === null || margin < LRN_NEG_MARGIN) return;
+      if (margin === null || margin < LRN_NEG_MARGIN - MARGIN_EPSILON) return;
     }
 
     const source: EmbeddingSource = input.positive ? "pos_feedback" : "neg_feedback";
