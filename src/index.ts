@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { buildMcpServer } from "./mcp/server.js";
+import { closeDb } from "./store/db.js";
 
 const app = await buildApp();
 
@@ -16,6 +17,7 @@ const shutdown = async (signal: string) => {
   app.log.info(`${signal} received, shutting down`);
   await mcp.stop();
   await app.close();
+  await closeDb();
   process.exit(0);
 };
 process.on("SIGINT", () => void shutdown("SIGINT"));

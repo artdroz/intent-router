@@ -5,8 +5,9 @@ import * as embeddingsStore from "../../store/embeddings.js";
 import * as routingStore from "../../store/routing.js";
 import { assertValidClasses, buildEmbeddingRows, indexClassUtterances } from "../service.js";
 import type { DefaultGateDef } from "./service.js";
+import { InternalError } from "../../errors.js";
 
-// Fixed app-wide lock ID so concurrent pods serialize seeding on the same lock.
+/** Fixed app-wide advisory lock id so concurrent pods serialize seeding on one lock. */
 const SEED_LOCK_ID = 1786551599371;
 
 /**
@@ -15,7 +16,7 @@ const SEED_LOCK_ID = 1786551599371;
  * Idempotent and safe to run on every startup: creates missing gates/classes,
  * updates changed metadata/classes, re-indexes embeddings only when a class's
  * utterances changed, and deletes classes removed from config — but only when
- * no tenant has used them (no routing events or learnt embeddings).
+ * no tenant has used them (no routing events or learned embeddings).
  */
 export async function seedDefaultGates(
   gates: DefaultGateDef[],
@@ -37,6 +38,11 @@ export async function seedDefaultGates(
   }
 }
 
+/**
+ * Reconcile one default-gate definition into the DB: create it when missing,
+ * update changed metadata, upsert classes (re-indexing only when utterances
+ * change), and drop classes removed from config that no tenant has used.
+ */
 async function reconcileGate(def: DefaultGateDef): Promise<void> {
   const existing = await gateStore.getGateByName(def.name);
 
@@ -52,7 +58,7 @@ async function reconcileGate(def: DefaultGateDef): Promise<void> {
         keywords: c.keywords ?? [],
       })),
     });
-    if (!raw) throw new Error(`Failed to seed default gate "${def.name}"`);
+    if (!raw) throw new InternalError(`Failed to seed default gate "${def.name}"`);
 
     for (const c of raw.classes) {
       await indexClassUtterances(c.id, def.name, c.label, c.utterances);
@@ -84,7 +90,7 @@ async function reconcileGate(def: DefaultGateDef): Promise<void> {
         keywords,
       });
       if (!inserted) {
-        throw new Error(`Failed to seed class "${classDef.label}" in gate "${def.name}"`);
+        throw new InternalError(`Failed to seed class "${classDef.label}" in gate "${def.name}"`);
       }
       await indexClassUtterances(inserted.id, def.name, inserted.label, utterances);
       continue;

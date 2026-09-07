@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { getDb } from "../store/db.js";
 
+/** Liveness (`/health`) and readiness (`/ready`) endpoints. */
 export function healthRoutes(app: FastifyInstance) {
   // Liveness — the process is up and serving requests.
   app.get("/health", () => ({ status: "ok" }));

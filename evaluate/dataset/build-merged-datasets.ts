@@ -14,7 +14,7 @@
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { appendFileSync, existsSync, readFileSync } from "node:fs";
-import type { LlmClient } from "../../src/lib/llm-client.js";
+import type { LlmClient } from "../../src/clients/llm-client.js";
 import {
   createValidatorClient,
   parseArgv,

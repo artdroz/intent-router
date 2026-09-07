@@ -1,13 +1,37 @@
+# Runs the full service in containers: Postgres (pgvector) + one-shot migration
+# + the app (REST :8080, MCP :8081).
+#
+# Usage:
+#   docker compose up -d --build   # postgres -> migrate -> app
+#   docker compose ps              # wait until app is up
+#   docker compose logs -f app
+#   docker compose down            # stop (keeps the pgdata volume)
+#   docker compose down -v         # stop AND wipe the database
+#
+# Default gates (config/default-gates.yaml) are seeded automatically at app
+# startup. You still need to create a tenant + API key once (see README):
+#   docker compose exec app node dist/scripts/create-tenant.js <name>
+#   docker compose exec app node dist/scripts/manage-keys.js create \
+#     --tenant <id> --name demo
+#
+# Embedding/LLM default to Ollama on the host. Inside a container "localhost"
+# is the container itself, so we reach the host via host.docker.internal.
+# Docker Desktop / Colima provide it automatically; the extra_hosts line below
+# makes it work on plain Linux too. Swap EMBED_BASE_URL / LLM_BASE_URL (+ keys)
+# for any OpenAI-compatible endpoint.
+#
+# Legacy note: if `docker compose` (plugin) is unavailable, `docker-compose`
+# (standalone) accepts the same commands.
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
-    container_name: intent-router-postgres
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: intent-router
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./config/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
@@ -16,6 +40,51 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # One-shot: applies the drizzle migrations, then exits. The app waits for it.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: intent-router:local
+    command: ["node", "dist/scripts/migrate.js"]
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/intent-router
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: intent-router:local
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${APP_PORT:-8080}:8080"
+      - "${MCP_PORT:-8081}:8081"
+    environment:
+      PORT: "8080"
+      MCP_PORT: "8081"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/intent-router
+      # Zero-key local default: Ollama on the host.
+      EMBED_BASE_URL: http://host.docker.internal:11434
+      EMBED_MODEL: nomic-embed-text
+      LLM_BASE_URL: http://host.docker.internal:11434
+      LLM_MODEL: qwen2.5:7b
+      LITELLM_PROXY_TOKEN: dev-token
+      DEFAULT_GATES_CONFIG_PATH: config/default-gates.yaml
+      MAX_PROMPT_LENGTH: "50000"
+    extra_hosts:
+      # host.docker.internal -> host gateway (required on plain Linux; harmless
+      # on Docker Desktop / Colima where it's already provided).
+      - "host.docker.internal:host-gateway"
 
 volumes:
   pgdata:

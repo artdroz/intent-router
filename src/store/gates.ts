@@ -12,6 +12,7 @@ import type {
   AddClassInput,
 } from "../gates/schema.js";
 
+/** Insert a gate and its classes atomically; returns the created gate with classes. */
 export async function createGate(tenantId: string | null, input: CreateGateInput) {
   const db = getDb();
 
@@ -45,6 +46,7 @@ export async function createGate(tenantId: string | null, input: CreateGateInput
   return getGateById(gateId);
 }
 
+/** Fetch an enabled gate and its classes by name. */
 export async function getGateByName(name: string) {
   const db = getDb();
   const [gate] = await db
@@ -59,6 +61,7 @@ export async function getGateByName(name: string) {
   return { gate, classes: gateClasses };
 }
 
+/** Fetch a gate and its classes by id (regardless of enabled state). */
 export async function getGateById(id: number) {
   const db = getDb();
   const [gate] = await db.select().from(gatesTable).where(eq(gatesTable.id, id));
@@ -104,6 +107,7 @@ export async function getGatesByTenant(tenantId: string) {
   }));
 }
 
+/** Fetch a single class row by id. */
 export async function getClassById(id: number) {
   const db = getDb();
   const [row] = await db.select().from(classesTable).where(eq(classesTable.id, id));
@@ -120,6 +124,7 @@ export async function gateNameExists(name: string) {
   return !!row;
 }
 
+/** Rename a gate or update its description/config, propagating the denormalized name. */
 export async function updateGate(name: string, input: UpdateGateInput) {
   const db = getDb();
   const existing = await getGateByName(name);
@@ -165,6 +170,7 @@ export async function updateGate(name: string, input: UpdateGateInput) {
   return getGateByName(newName);
 }
 
+/** Update a class's fields atomically, propagating a label rename to its embeddings. */
 export async function updateClass(gateName: string, label: string, input: UpdateClassInput) {
   const db = getDb();
   const gate = await getGateByName(gateName);
@@ -176,7 +182,7 @@ export async function updateClass(gateName: string, label: string, input: Update
     .where(and(eq(classesTable.gateId, gate.gate.id), eq(classesTable.label, label)));
   if (!c) return null;
 
-  // The class row and the denormalised `label` column on its embeddings must
+  // The class row and the denormalized `label` column on its embeddings must
   // change atomically: a partial write would leave embeddings under a stale
   // label that the semantic classifier aggregates by.
   await db.transaction(async (tx) => {
@@ -203,6 +209,7 @@ export async function updateClass(gateName: string, label: string, input: Update
   return updated;
 }
 
+/** Add a class row to a gate. */
 export async function addClass(gateName: string, input: AddClassInput) {
   const db = getDb();
   const gate = await getGateByName(gateName);
@@ -223,6 +230,7 @@ export async function addClass(gateName: string, input: AddClassInput) {
   return inserted;
 }
 
+/** Delete a class row. */
 export async function deleteClass(gateName: string, label: string) {
   const db = getDb();
   const gate = await getGateByName(gateName);
@@ -238,6 +246,7 @@ export async function deleteClass(gateName: string, label: string) {
   return true;
 }
 
+/** Soft-disable a gate by setting `enabled = 0`. */
 export async function disableGate(name: string) {
   const db = getDb();
   const [gate] = await db
@@ -254,6 +263,7 @@ export async function disableGate(name: string) {
   return true;
 }
 
+/** Reassign all of a tenant's gates to another tenant. */
 export async function transferGates(fromTenantId: string, toTenantId: string) {
   const db = getDb();
   await db

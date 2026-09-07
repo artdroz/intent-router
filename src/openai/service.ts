@@ -5,6 +5,7 @@ import type { ChatCompletionRequest } from "./schema.js";
 import { ChatCompletionError } from "./types.js";
 import type { ChatCompletionResponse, ListModelsResponse } from "./types.js";
 
+/** Map a chat-completion body to a routing decision and return an OpenAI-style completion. */
 export async function handleChatCompletion(
   tenantId: string,
   body: ChatCompletionRequest,
@@ -32,6 +33,7 @@ export async function handleChatCompletion(
   return buildChatCompletion(body.model, routeId, result);
 }
 
+/** List the models advertised by the service (from the default-gates `models` map). */
 export function listModels(defaultModels: Record<string, string>): ListModelsResponse {
   const created = Math.floor(Date.now() / 1000);
   return {

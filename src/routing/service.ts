@@ -3,9 +3,8 @@ import * as gateStore from "../store/gates.js";
 import * as routingStore from "../store/routing.js";
 import * as embeddingsStore from "../store/embeddings.js";
 import { toGate } from "../gates/service.js";
-import type { LlmClient } from "../lib/llm-client.js";
-import { EmbedClient } from "../lib/embed-client.js";
-import { getEmbedClient } from "../lib/embed-client.js";
+import type { LlmClient } from "../clients/llm-client.js";
+import { getEmbedClient, type EmbedClient } from "../clients/embed-client.js";
 import { KeywordClassifier, tokenize } from "./classifiers/keyword.js";
 import { SemanticClassifier } from "./classifiers/semantic.js";
 import { LlmClassifier } from "./classifiers/llm.js";
@@ -18,25 +17,22 @@ import {
   LRN_MAX_PER_CLASS,
   LRN_MIN_FEEDBACK_ROWS,
   LRN_NEG_MARGIN,
-} from "./config.js";
+  MARGIN_EPSILON,
+} from "./constants.js";
 import { groupCorpusByClass, computeDocFrequencies, scoreClassKeywords } from "./tfidf.js";
+import { roundScoreMap, roundTo } from "./utils.js";
+import { InternalError, NotFoundError, ValidationError } from "../errors.js";
 
-// Floating-point subtraction (e.g. 0.6 - 0.4) can land a hair below a decimal
-// threshold even when the margin is mathematically equal to it. This tolerance
-// keeps the LRN_NEG_MARGIN gate inclusive as documented.
-const MARGIN_EPSILON = 1e-9;
+let router: CascadingRouter | null = null;
+let maxPromptLength = 50000;
 
-// TOD0: handle large prompts gracefuly when embedding
-let _router: CascadingRouter | null = null;
-let _maxPromptLength = 50000;
-
-export function initRouter(
-  llmClient: LlmClient,
-  embedClient: EmbedClient,
-  maxPromptLength: number,
-) {
-  _maxPromptLength = maxPromptLength;
-  _router = new CascadingRouter(
+/**
+ * Initialize the process-wide router with the three classifiers and a
+ * historical fallback. Called once at bootstrap before any routing request.
+ */
+export function initRouter(llmClient: LlmClient, embedClient: EmbedClient, maxPromptLen: number) {
+  maxPromptLength = maxPromptLen;
+  router = new CascadingRouter(
     new KeywordClassifier(),
     new SemanticClassifier(embedClient),
     new LlmClassifier(llmClient),
@@ -46,31 +42,36 @@ export function initRouter(
 }
 
 function getRouter(): CascadingRouter {
-  if (!_router) throw new Error("Router not initialized — call initRouter first");
-  return _router;
+  if (!router) throw new InternalError("Router not initialized — call initRouter first");
+  return router;
 }
 
+/** Which entry point produced a routing request; recorded in `routing_events.channel`. */
 export type RoutingChannel = "rest" | "litellm" | "mcp";
 
+/**
+ * Route a prompt to an intent within the tenant's gate and persist the event.
+ * Returns a public `routeId` for later feedback plus the routing decision.
+ */
 export async function route(
   tenantId: string,
   input: RouteRequest,
   channel: RoutingChannel = "litellm",
 ): Promise<{ routeId: string; result: RouteResult }> {
-  if (input.prompt.length > _maxPromptLength) {
-    throw new Error(`Prompt exceeds max length of ${_maxPromptLength}`);
+  if (input.prompt.length > maxPromptLength) {
+    throw new ValidationError(`Prompt exceeds max length of ${maxPromptLength}`);
   }
 
   // Check if the tenant has access to the gate
   const visibleGates = await gateStore.getGatesByTenant(tenantId);
 
   const rawGate = visibleGates.find((g) => g.gate.name === input.gate);
-  if (!rawGate) throw new Error(`Gate "${input.gate}" not found`);
+  if (!rawGate) throw new NotFoundError(`Gate "${input.gate}" not found`);
 
   const domainGate = toGate(rawGate);
 
-  const router = getRouter();
-  const result = await router.route(input.prompt, domainGate, tenantId);
+  const activeRouter = getRouter();
+  const result = await activeRouter.route(input.prompt, domainGate, tenantId);
 
   // Find the predicted class ID for logging
   const predictedClass = rawGate.classes.find((c) => c.label === result.label);
@@ -89,14 +90,25 @@ export async function route(
     });
   }
 
-  return { routeId, result };
+  // Round scores only for the caller. The full-precision distribution is
+  // already persisted above, and the learning math (top-2 margin gating)
+  // depends on the raw values.
+  return {
+    routeId,
+    result: {
+      ...result,
+      score: roundTo(result.score),
+      scores: roundScoreMap(result.scores),
+    },
+  };
 }
 
+/** Persist user feedback for a routing decision and apply best-effort learning. */
 export async function submitFeedback(input: FeedbackInput, tenantId: string): Promise<void> {
   // Only the tenant that created the route may submit feedback for it.
   const event = await routingStore.getRouteByRouteId(input.routeId);
   if (!event || event.tenantId !== tenantId) {
-    throw new Error(`Route "${input.routeId}" not found`);
+    throw new NotFoundError(`Route "${input.routeId}" not found`);
   }
 
   // Keyword extraction; noise filtering happens in the cron via TF-IDF scoring.
@@ -115,7 +127,7 @@ export async function submitFeedback(input: FeedbackInput, tenantId: string): Pr
 
 /**
  * Best-effort embedding learning from feedback:
- * - positive → store the prompt as a tenant learnt embedding
+ * - positive → store the prompt as a tenant learned embedding
  *   (`source: "pos_feedback"`).
  * - negative → store it as a negative guardrail (`source: "neg_feedback"`)
  *   tagged with the wrongly-predicted intent. At runtime a matching guardrail

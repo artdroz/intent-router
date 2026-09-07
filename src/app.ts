@@ -1,18 +1,19 @@
-import Fastify, { type FastifyError } from "fastify";
+import { randomUUID } from "node:crypto";
+import Fastify from "fastify";
 import fastifyEnv from "@fastify/env";
 import fastifyCors from "@fastify/cors";
-import { ZodError } from "zod";
 import { initDb } from "./store/db.js";
 import { authPlugin } from "./auth/plugin.js";
 import { healthRoutes } from "./health/routes.js";
 import { gateRoutes } from "./gates/routes.js";
-import { initEmbedClient } from "./lib/embed-client.js";
-import { initLlmClient } from "./lib/llm-client.js";
+import { initEmbedClient } from "./clients/embed-client.js";
+import { initLlmClient } from "./clients/llm-client.js";
 import { routingRoutes } from "./routing/routes.js";
 import { initRouter } from "./routing/service.js";
 import { loadDefaultGatesConfig } from "./gates/default-gates/service.js";
 import { seedDefaultGates } from "./gates/default-gates/seed.js";
 import { openaiRoutes } from "./openai/routes.js";
+import { restErrorBody, toAppError } from "./errors.js";
 
 const envSchema = {
   type: "object",
@@ -61,8 +62,17 @@ declare module "fastify" {
   }
 }
 
+/** Build the Fastify app: env, DB, routes, router, and default-gate seeding. */
 export async function buildApp() {
-  const app = Fastify({ logger: true });
+  const app = Fastify({
+    logger: { level: process.env.LOG_LEVEL ?? "info" },
+    genReqId: () => randomUUID(),
+  });
+
+  // Attach the request id to every response so callers can correlate logs.
+  app.addHook("onSend", async (req, reply) => {
+    reply.header("x-request-id", req.id);
+  });
 
   // Load & validate environment
   await app.register(fastifyEnv, { schema: envSchema, dotenv: true });
@@ -73,22 +83,16 @@ export async function buildApp() {
   // CORS
   await app.register(fastifyCors);
 
-  // Map errors to clean HTTP responses: validation → 400, missing resource →
-  // 404, anything else → 500 (logged). This gives the REST lane the same
-  // contract as the OpenAI-compatible lane.
-  app.setErrorHandler<FastifyError>((err, req, reply) => {
-    if (err instanceof ZodError) {
-      return reply.status(400).send({ error: "Bad request", details: err.issues });
+  // Map errors to clean HTTP responses via the shared taxonomy: validation →
+  // 400, missing resource → 404, conflicts → 409, upstream failures → 502,
+  // anything else → 500 (logged). The OpenAI-compatible lane formats the same
+  // errors into its own envelope.
+  app.setErrorHandler((err, req, reply) => {
+    const appError = toAppError(err);
+    if (appError.statusCode >= 500) {
+      req.log.error({ err, requestId: req.id }, appError.message);
     }
-    if (/not found/i.test(err.message)) {
-      return reply.status(404).send({ error: err.message });
-    }
-    const status =
-      typeof err.statusCode === "number" && err.statusCode >= 400 ? err.statusCode : 500;
-    req.log.error(err);
-    return reply
-      .status(status)
-      .send({ error: status === 500 ? "Internal server error" : err.message });
+    return reply.status(appError.statusCode).send(restErrorBody(appError));
   });
 
   // Public health endpoints

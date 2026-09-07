@@ -1,14 +1,16 @@
 import type { Classifier, ClassificationResult } from "./types.js";
 import type { Gate } from "../../gates/types.js";
-import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT, STOPWORDS } from "../config.js";
+import { KW_CONFIG_WEIGHT, KW_FEEDBACK_WEIGHT, STOPWORDS } from "../constants.js";
 import { buildResult } from "../utils.js";
 import { getPromotedKeywords } from "../../store/routing.js";
 
+/** Tunable keyword-classifier weights, with defaults in `routing/constants.ts`. */
 export type KeywordOptions = {
   configWeight?: number;
   feedbackWeight?: number;
 };
 
+/** Deterministic keyword classifier: scores classes by weighted keyword coverage. */
 export class KeywordClassifier implements Classifier {
   readonly name = "keyword" as const;
 
@@ -47,6 +49,7 @@ export class KeywordClassifier implements Classifier {
   }
 }
 
+/** Lower-case, split on whitespace, and drop stopwords; returns unique tokens. */
 export function tokenize(text: string): Set<string> {
   return new Set(
     text

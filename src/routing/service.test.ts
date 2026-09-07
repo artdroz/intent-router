@@ -3,13 +3,13 @@ import { submitFeedback } from "./service.js";
 import * as routingStore from "../store/routing.js";
 import * as gateStore from "../store/gates.js";
 import * as embeddingsStore from "../store/embeddings.js";
-import { getEmbedClient } from "../lib/embed-client.js";
+import { getEmbedClient } from "../clients/embed-client.js";
 import type { ClassRow, RoutingEventRow } from "../store/schema.js";
 
 vi.mock("../store/routing.js");
 vi.mock("../store/gates.js");
 vi.mock("../store/embeddings.js");
-vi.mock("../lib/embed-client.js");
+vi.mock("../clients/embed-client.js");
 
 const getRouteByRouteId = vi.mocked(routingStore.getRouteByRouteId);
 const insertFeedback = vi.mocked(routingStore.insertFeedback);

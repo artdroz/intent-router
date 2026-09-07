@@ -168,8 +168,9 @@ describe("routing service (real database, stubbed gateway)", () => {
   });
 
   it("searchByGate excludes learned embeddings when learning is disabled", async () => {
-    const gate = await seedOpsGate();
-    const deploy = gate.classes.find((c) => c.label === "deploy")!;
+    await seedOpsGate();
+    const raw = await gateStore.getGateByName("ops");
+    const deploy = raw!.classes.find((c) => c.label === "deploy")!;
 
     await insertMany([
       {
@@ -203,16 +204,17 @@ describe("routing service (real database, stubbed gateway)", () => {
   });
 
   it("promotes class-specific keywords from accumulated feedback", async () => {
-    const gate = await seedOpsGate();
-    const deployClass = gate.classes.find((c) => c.label === "deploy")!;
-    const debugClass = gate.classes.find((c) => c.label === "debug")!;
+    await seedOpsGate();
+    const raw = await gateStore.getGateByName("ops");
+    const deployClass = raw!.classes.find((c) => c.label === "deploy")!;
+    const debugClass = raw!.classes.find((c) => c.label === "debug")!;
 
     for (let i = 0; i < 25; i++) {
       const routeId = `r-deploy-${i}`;
       await routingStore.insertRouteEvent({
         routeId,
         tenantId: tenant.id,
-        gateId: gate.id,
+        gateId: raw!.gate.id,
         prompt: `deploy prompt ${i}`,
         predictedClassId: deployClass.id,
         stage: "pre-cascade",
@@ -226,7 +228,7 @@ describe("routing service (real database, stubbed gateway)", () => {
       await routingStore.insertRouteEvent({
         routeId,
         tenantId: tenant.id,
-        gateId: gate.id,
+        gateId: raw!.gate.id,
         prompt: `debug prompt ${i}`,
         predictedClassId: debugClass.id,
         stage: "pre-cascade",

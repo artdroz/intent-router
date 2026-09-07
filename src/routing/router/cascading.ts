@@ -12,8 +12,10 @@ import {
   CAS_MARGIN_THRESHOLD,
   CAS_SEM_WEIGHT,
   LLM_MAX_ATTEMPTS,
-} from "../config.js";
+} from "../constants.js";
+import { InternalError } from "../../errors.js";
 
+/** Composes the three classifiers: pre-cascade blend, confidence/agreement gates, LLM fallback. */
 export class CascadingRouter implements Router {
   readonly name = "cascade";
 
@@ -50,7 +52,15 @@ export class CascadingRouter implements Router {
       sorted: aggregatedResults,
     } = await this.runPrecascade(prompt, gate, tenantId);
 
-    if (!shouldCascade(aggregatedResults, kwResults, semResults, this.marginThreshold, this.entropyThreshold)) {
+    if (
+      !shouldCascade(
+        aggregatedResults,
+        kwResults,
+        semResults,
+        this.marginThreshold,
+        this.entropyThreshold,
+      )
+    ) {
       return preCascadeResult;
     }
 
@@ -62,7 +72,12 @@ export class CascadingRouter implements Router {
     prompt: string,
     gate: Gate,
     tenantId: string,
-  ): Promise<{ result: RouteResult; kwResult: ClassificationResult; semResult: ClassificationResult; sorted: [string, ClassificationEntry][]; }> {
+  ): Promise<{
+    result: RouteResult;
+    kwResult: ClassificationResult;
+    semResult: ClassificationResult;
+    sorted: [string, ClassificationEntry][];
+  }> {
     const useKeyword = hasConfiguredKeywords(gate);
     const useSemantic = hasConfiguredUtterances(gate);
     let aggregated: Map<string, ClassificationEntry>;
@@ -121,7 +136,7 @@ export class CascadingRouter implements Router {
       return { label: historical, score: 0, stage: "historical", scores };
     }
 
-    throw new Error(
+    throw new InternalError(
       `Gate "${gate.name}" could not be classified: LLM returned no usable answer and no fallback is available`,
     );
   }
@@ -154,13 +169,11 @@ export function shouldCascade(
   marginThreshold: number,
   entropyThreshold: number,
 ): boolean {
-
-  // Margin gates the gap between the #1 and #2 classes
-  // Shannon entropy gates how spread the probability is over� all� classes
+  // Margin gates the gap between the #1 and #2 classes.
+  // Entropy gates how spread the probability is across all classes.
   const margin = computeRelativeMargin(aggregatedResults);
   const entropy = computeEntropy(aggregatedResults);
   if (margin < marginThreshold || entropy > entropyThreshold) return true;
-
 
   // Confident disagreement: each classifier individually sure, but about
   // different classes → contradictory evidence → cascade regardless of the blend.
@@ -232,8 +245,8 @@ export function scoreClass(
   const kwScore = kwEntry?.prob ?? 0;
   const semScore = semEntry?.prob ?? 0;
 
-  // Linear blend only — no keyword gate boost.lready weights
-  // config (1.2) vs promoted (1.0) keywords internally.
+  // Linear blend only — the keyword stage already weights configured (2.0)
+  // versus promoted (1.0) keywords internally.
   const weighted = kwScore * kwWeight + semScore * semWeight;
   return {
     prob: weighted,

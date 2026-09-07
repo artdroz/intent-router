@@ -5,28 +5,438 @@
 #         reconcile (create/update/delete-unused).
 #
 # NOTE: a gate needs at least 2 classes (non-empty label, >=1 utterance each).
-# Fill in real classes before running the service.
-
+#
 models:
-  complexity-tier: complexity-tier
-
+  complexity-tier: complexity_tier
+  request-type: request_type
 gates:
-  - name: complexity-tier
-    description: "Routes tasks by complexity tier."
+  - name: complexity_tier
+    description: "Classify a request into exactly one complexity tier using two axes: reasoning depth (logical hops, hypothesis-verification cycles) and execution scope (files, integrations, structural breadth). Depth overrides scope. Not all bugs are reasoning: an error naming the exact fault is medium, while a vague failure or a root cause hidden in noise is reasoning. Judge by signal-to-noise ratio, not word count."
     config:
       learningEnabled: true
     classes:
       - label: simple
-        description: "Simple, single-step tasks."
+        description: "Low reasoning depth and low execution scope. Covers BOTH: (a) trivial single-step technical fixes — typos, a CSS/hex value change, an API glossary lookup, a document update; and (b) no actionable task — administrative notes, project-tracker checklists, or feature-request/bug-report descriptions that ask for no code, design, or analysis. No synthesis or structural understanding required."
         utterances:
-          - "What is the capital of France?"
+          - Feature request describing a small UI preference change, with no implementation details requested
+          - Project tracker checklist marking rollout steps as completed or still pending
+          - Question asking when a feature will ship in the next release
+          - Bug report noting a missing setting label, with a one-line fix
+          - The README quick start still shows the old install command and needs updating
+          - There is a typo in an error message string that should be corrected
+          - Rename a variable in one file to match the naming convention
+          - The brand color in the stylesheet is a hardcoded hex value and needs replacing
+          - The documentation lists a default value that no longer matches the code
+          - Reserve an issue number for an upcoming fix, with no technical detail yet
+          - Update the copyright year in the license header of one file
+          - Change the default timeout value in the example configuration
+          - Fix a broken link on the documentation index page
+          - Add the missing comma to this JSON snippet in the README
+          - Mark the rollout checklist item as complete in the tracking issue
         keywords:
           - simple
-          - easy
-      - label: complex
-        description: "Multi-step tasks requiring reasoning."
+          - trivial
+          - rename
+          - typo
+          - typos
+          - format
+          - list
+          - lookup
+          - cosmetic
+          - minor
+          - comment
+          - default
+          - version
+          - spelling
+          - grammar
+          - wording
+          - quick
+          - direct
+      - label: medium
+        description: "Moderate reasoning depth, low-to-moderate scope. Standard engineering or API-design work with a linear solution path: the target file, required action, or root cause is stated explicitly in the prompt or error log. Example: 'SyntaxError: expected } at line 42' — the fault is evident, so fix it directly. Apply existing knowledge; do not investigate root causes."
         utterances:
-          - "Plan a multi-week project with dependencies."
+          - Add pagination to the existing list endpoint following the pattern already used by the session list
+          - The stack trace points to a null dereference at a specific line, fix that site
+          - Wire a new configuration flag from the settings schema through to the handler
+          - Extract this repeated logic into a shared helper function
+          - Add a unit test covering the edge case described in the report
+          - Update the client to use the new error type across all call sites
+          - The error message says the module is missing, so install and import it
+          - Implement a small feature with a clearly specified interface and requirements
+          - Add validation for a new input field with an explicit schema
+          - Migrate a single component to the new hooks pattern
+          - Add a new endpoint to the controller with a clearly defined request and response shape
+          - Extend the existing parser to handle the new field and update its tests
+          - Apply the requested changes from the code review and update the affected tests
+          - Wire the new environment variable through the settings to the service that reads it
+          - Convert this component to the newer rendering pattern without changing its behavior
         keywords:
-          - complex
-          - hard
+          - add
+          - update
+          - extend
+          - refactor
+          - implement
+          - feature
+          - function
+          - unit
+          - endpoint
+          - handler
+          - helper
+          - wire
+          - flag
+          - config
+          - moderate
+          - explicit
+      - label: complex
+        description: "Low-to-moderate reasoning depth, HIGH execution scope. The solution path is KNOWN and deterministic, but execution spans many files, services, or dependencies: schema migrations, bulk mechanical refactors, vendor upgrades, full CRUD boilerplate across 10+ files. High effort, no detective work. Contrast: 'migrate the schema across 10 services' = complex; 'find the race hidden across 10 files' = reasoning."
+        utterances:
+          - Migrate the database schema across every service that depends on it
+          - Upgrade the vendored dependency and update every call site in the repository
+          - Generate the full CRUD scaffolding for this entity from the specification
+          - Apply the same mechanical refactor across more than ten files
+          - Coordinate version bumps across multiple repositories in one release
+          - Roll out the new API contract to every client integration
+          - Deprecate the legacy interface across all remaining components
+          - Split the monolith into two services and wire up a message queue between them
+          - Introduce multi-tenancy with per-tenant schema isolation across the stack
+          - Implement an event-driven pipeline with an outbox and dead-letter handling
+          - Bump the framework to the next major version and fix every breaking change
+          - Rebrand the package across all references, imports, and configuration files
+          - Generate type definitions and client libraries for the entire public API surface
+          - Standardize error handling and logging across every service in the monorepo
+          - Migrate all services from the legacy transport to the new protocol
+        keywords:
+          - migrate
+          - migration
+          - upgrade
+          - vendor
+          - dependency
+          - dependencies
+          - schema
+          - scaffold
+          - boilerplate
+          - across
+          - multiple
+          - repos
+          - repositories
+          - services
+          - rollout
+          - deprecate
+          - mechanical
+          - bulk
+      - label: reasoning
+        description: "High reasoning depth at ANY scope. The solution path is UNKNOWN or non-linear: form and test hypotheses, trace subtle interactions, evaluate trade-offs, or filter noise to find a hidden root cause. Examples: race conditions, memory leaks, flaky or intermittent failures, 'app randomly crashes in production', a root cause hidden in a massive unstructured log dump, a novel algorithm, or contradictory architectural constraints. Depth overrides scope."
+        utterances:
+          - Diagnose the intermittent crash that only reproduces in production
+          - Root-cause the race condition between the two background workers
+          - Trace the memory leak that appears only after several hours of load
+          - Investigate why this flaky test fails only under load
+          - The app randomly crashes in production with no obvious trigger, find the root cause
+          - Find the single clue hidden in this large unstructured log dump
+          - Prove that this locking scheme cannot deadlock
+          - Reason about the security implications of this trust boundary
+          - Determine why the garbage collector pauses spike under allocation pressure
+          - Reconstruct the sequence of events that corrupts the checkpoint file
+          - Explain why the system deadlocks only when two specific features are enabled together
+          - Prove that the proposed consensus algorithm satisfies its safety property
+          - Determine whether this failure is a genuine bug or an artifact of the test harness
+          - Reason about which interleaving of concurrent writes produces the inconsistent state
+          - Prove that the algorithm terminates for all finite inputs
+        keywords:
+          - diagnose
+          - diagnosis
+          - race
+          - leak
+          - deadlock
+          - flaky
+          - flaking
+          - intermittent
+          - investigate
+          - derive
+          - prove
+          - trace
+          - heisenbug
+          - corruption
+          - corrupt
+          - invariant
+          - nondeterministic
+          - hypothesis
+  - name: request_type
+    description: Classify the type of work a request asks for into exactly one request-type category.
+    config:
+      learningEnabled: true
+    classes:
+      - label: code_generation
+        description: Write, create, implement, or build code, scripts, functions, or APIs — introducing net-new logic, features, or functionality rather than explaining or fixing existing code.
+        utterances:
+          - add a new endpoint that streams paginated results to the client
+          - implement a feature that exports reports in multiple file formats
+          - write a function that validates nested configuration objects
+          - create a CLI subcommand for scaffolding a new project
+          - build a script that backfills missing records in the database
+          - introduce a plugin hook so extensions can register custom commands
+          - implement retry with exponential backoff for the HTTP client
+          - refactor the component to use the shared utility module
+          - improve performance by rewriting the hot path in the parser
+          - modernize the code to use the newer API
+          - "proposal: use the faster implementation in this module"
+          - use the new helper function in this module
+          - rewrite this part of the module more efficiently
+          - generate the boilerplate for a new service from the project template
+          - add a background worker that drains jobs from the queue
+        keywords:
+          - add
+          - implement
+          - create
+          - write
+          - build
+          - generate
+          - scaffold
+          - refactor
+          - rewrite
+          - optimize
+          - function
+          - endpoint
+          - script
+          - cli
+          - plugin
+      - label: code_understanding
+        description: Explain, review, debug, fix, or trace existing code, bugs, or stack traces — making sense of how current code behaves rather than designing or building something new.
+        utterances:
+          - explain how the scheduler decides which task to run next
+          - trace the request path through the middleware to find where the header is dropped
+          - review this pull request and summarize the behavior changes
+          - what does this regex in the parser actually match
+          - why does this query return duplicate rows
+          - fix the null pointer in this handler when the session expires
+          - walk me through how authentication tokens are refreshed
+          - this bug report describes a crash when the process starts
+          - the stack trace shows an unhandled exception inside the extension
+          - the log reports an unhandled error with a stack trace
+          - explain what this function returns when the input list is empty
+          - trace the data flow from the API call down to the database layer
+          - figure out which code path triggers this deprecation warning
+          - summarize the behavior changes introduced by this changeset
+          - point out the risky parts in this diff before it is merged
+        keywords:
+          - explain
+          - understand
+          - review
+          - trace
+          - investigate
+          - debug
+          - fix
+          - existing
+          - behavior
+          - bug
+          - error
+          - stack
+          - walk
+          - crash
+          - segfault
+          - panic
+          - race
+          - deadlock
+          - leak
+          - regression
+          - reproduce
+      - label: technical_design
+        description: Architect, model, or structure a system, infrastructure, or database, or compare technical trade-offs — designing approaches, contracts, schemas, and proposals before implementation.
+        utterances:
+          - propose a design for splitting the monolith into two services
+          - draft an RFC for the new plugin interface
+          - design the schema for storing audit logs across regions
+          - outline the migration strategy from polling to webhooks
+          - spec the public API contract for the v2 endpoint
+          - compare trade-offs between event sourcing and a transactional outbox
+          - sketch the architecture for a multi-tenant deployment topology
+          - propose adding a new field to the API object
+          - request a new capability in the controller with clear semantics
+          - outline the expected behavior and scope of a proposed feature
+          - proposed API for extensions to query editor state
+          - decompose the component into smaller reusable parts
+          - move the shared logic into a common module
+          - model the data entities and their relationships for the new domain
+          - choose between a queue-based and a request-response integration and justify the trade-offs
+        keywords:
+          - design
+          - architecture
+          - architect
+          - rfc
+          - proposal
+          - propose
+          - contract
+          - schema
+          - migrate
+          - migration
+          - strategy
+          - structure
+          - system
+          - trade-off
+          - trade-offs
+          - spec
+          - interface
+          - database
+          - topology
+          - semantics
+          - api
+      - label: analytical_reasoning
+        description: Solve, compute, prove, or reason through math, logic, complex debugging, edge-case analysis, or any problem requiring multi-step technical reasoning.
+        utterances:
+          - compute the worst-case time complexity of this recursive function
+          - solve this recurrence relation and give a closed form
+          - prove that this algorithm is correct for all inputs
+          - reason about whether this algorithm terminates for all inputs
+          - derive the closed form of this summation
+          - calculate the expected number of steps this loop takes
+          - determine whether the two schemes are equivalent
+          - figure out the mathematical invariant that holds across iterations
+          - compute the result of this arithmetic expression
+          - prove or disprove this mathematical statement
+          - work out the probability that this hashing scheme produces a collision
+          - analyze whether this greedy strategy is optimal for the given problem
+          - derive the state transition logic that explains the observed behavior
+          - reason through the edge cases of this recursive function
+          - solve the constraint-satisfaction problem and list the valid assignments
+        keywords:
+          - solve
+          - compute
+          - prove
+          - reason
+          - logic
+          - math
+          - derive
+          - complexity
+          - algorithm
+          - proof
+          - invariant
+          - recurrence
+          - terminate
+          - equation
+          - theorem
+      - label: writing
+        description: Draft, edit, rewrite, or translate prose, emails, essays, or documentation — producing or revising human-readable text rather than code.
+        utterances:
+          - update the README quick-start with the new install command
+          - write a user guide explaining the configuration options
+          - translate the error messages in the UI to Spanish
+          - document the release process in the contributor handbook
+          - rewrite the API reference examples to match the current schema
+          - draft an announcement email for the upcoming release
+          - add a troubleshooting section to the setup page
+          - fix a typo in the documentation
+          - improve the wording of this error message
+          - edit the release notes to reflect the new features and fixes
+          - rewrite the onboarding guide so new contributors can follow it step by step
+          - draft a short blog post announcing the deprecation timeline
+          - write a quick reference card for the most commonly used commands
+          - correct the grammar in the contributor guidelines
+          - write an FAQ section answering the most common setup questions
+        keywords:
+          - document
+          - docs
+          - documentation
+          - readme
+          - guide
+          - reference
+          - translate
+          - draft
+          - edit
+          - rewrite
+          - prose
+          - email
+          - essay
+          - manual
+          - troubleshooting
+          - changelog
+          - instructions
+          - typo
+          - wording
+          - grammar
+          - spelling
+      - label: factual_lookup
+        description: Direct factual questions, definitions, or simple attributes — asking what something is, whether it is supported or compatible, or for a simple list or lookup.
+        utterances:
+          - is this configuration option supported in the latest release
+          - which minimum runtime version does this package require
+          - what is the definition of this setting
+          - is this library compatible with the newer platform version
+          - clarify when this change takes effect
+          - where is this option documented
+          - how do I register a tool in the extension
+          - is it possible to create a terminal in this context
+          - list the available configuration options
+          - which platforms are supported
+          - what does this configuration flag control
+          - when was this feature introduced and in which release
+          - how many replicas does the default deployment run
+          - which endpoint serves the health check
+          - what is the default value of this timeout setting
+        keywords:
+          - clarify
+          - clarification
+          - supported
+          - compatible
+          - compatibility
+          - definition
+          - define
+          - lookup
+          - list
+          - question
+          - consult
+          - fact
+          - possible
+      - label: general
+        description: Catch-all for configuration, general announcements, admin tasks, greetings, or anything that does not clearly fit another category.
+        utterances:
+          - update the CI pipeline to run tests on the new branch
+          - add a workflow that publishes the package on tagged releases
+          - tweak the linter configuration to ignore generated files
+          - bump the dependency to the latest patch release
+          - refresh the CODEOWNERS file with the new team
+          - announce the upcoming maintenance window to the team
+          - reorder the checklist items in the issue template
+          - track the rollout status of this feature across environments
+          - improve the onboarding flow for first-run users
+          - finalize the existing API for wider adoption
+          - deprecate the existing API surface
+          - upgrade the bundled dependency to the latest version
+          - decide on the release process for this component
+          - set up repository automation for assigning reviewers to new pull requests
+          - clean up stale labels and milestones across the issue tracker
+        keywords:
+          - ci
+          - cd
+          - workflow
+          - pipeline
+          - lint
+          - linter
+          - config
+          - configuration
+          - codeowners
+          - bot
+          - label
+          - housekeeping
+          - chore
+          - template
+          - maintenance
+          - cleanup
+          - bump
+          - upgrade
+          - pin
+          - dependency
+          - dependencies
+          - deps
+          - announce
+          - announcement
+          - admin
+          - administrative
+          - rollout
+          - onboarding
+          - ux
+          - ui
+          - deprecate
+          - finalize
+          - checklist
+          - decide
+          - release

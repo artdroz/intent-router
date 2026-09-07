@@ -1,3 +1,4 @@
+/** The OpenAI-compatible chat-completion response returned by `/v1/chat/completions`. */
 export type ChatCompletionResponse = {
   id: string;
   object: "chat.completion";
@@ -15,6 +16,7 @@ export type ChatCompletionResponse = {
   };
 };
 
+/** An error specific to the OpenAI-compatible surface, carrying its own `type`. */
 export class ChatCompletionError extends Error {
   readonly status: number;
   readonly type: string;
@@ -27,6 +29,7 @@ export class ChatCompletionError extends Error {
   }
 }
 
+/** The `/v1/models` listing response. */
 export type ListModelsResponse = {
   object: "list";
   data: Array<{ id: string; object: "model"; created: number; owned_by: string }>;

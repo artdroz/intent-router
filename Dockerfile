@@ -8,11 +8,13 @@
 FROM node:22-slim AS build
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci
+RUN npm install -g pnpm@11.16.0
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
 # ====== Stage 2: run the app ======
 FROM node:22-slim AS runtime
@@ -20,8 +22,10 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install -g pnpm@11.16.0
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile --prod
 
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/drizzle ./drizzle

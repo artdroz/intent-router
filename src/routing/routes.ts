@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import * as service from "./service.js";
 import { routeRequestSchema, feedbackSchema } from "./schema.js";
 
+/** REST endpoints for routing (`/api/route`) and feedback (`/api/feedback`). */
 export function routingRoutes(app: FastifyInstance) {
   app.post("/api/route", async (req) => {
     const input = routeRequestSchema.parse(req.body);

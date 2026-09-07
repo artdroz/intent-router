@@ -16,8 +16,8 @@ import { createGate } from "../../../src/store/gates.js";
 import { insertMany, type NewEmbeddingInput } from "../../../src/store/embeddings.js";
 import { findKeyByName, insertKey } from "../../../src/store/api-keys.js";
 import { gates as gatesTable, classes as classesTable, tenants as tenantsTable, embeddings as embeddingsTable } from "../../../src/store/schema.js";
-import { createEmbedClient, type EmbedClient } from "../../../src/lib/embed-client.js";
-import { initLlmClient, type LlmClient } from "../../../src/lib/llm-client.js";
+import { createEmbedClient, type EmbedClient } from "../../../src/clients/embed-client.js";
+import { initLlmClient, type LlmClient } from "../../../src/clients/llm-client.js";
 import type { Gate } from "../../../src/gates/types.js";
 import {
   DATABASE_URL,

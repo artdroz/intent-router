@@ -57,6 +57,12 @@ export const LRN_SEM_VETO_MARGIN = 0;
 /** Minimum top-2 margin to learn from negative feedback (rejects noisy errors). */
 export const LRN_NEG_MARGIN = 0.2;
 
+/**
+ * Tolerance for float subtraction in the `LRN_NEG_MARGIN` comparison (e.g.
+ * 0.6 - 0.4 can land a hair below the threshold); keeps the gate inclusive.
+ */
+export const MARGIN_EPSILON = 1e-9;
+
 /** Function words removed before keyword extraction/matching (learning noise filter). */
 export const STOPWORDS = new Set([
   "a",

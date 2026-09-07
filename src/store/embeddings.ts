@@ -6,6 +6,7 @@ import type { EmbeddingRow, NewEmbedding, EmbeddingSource } from "./schema.js";
 
 export type { EmbeddingRow, NewEmbedding };
 
+/** One row returned by an ANN search, with its cosine distance from the query. */
 export type SearchResult = {
   id: number;
   classId: number;
@@ -83,7 +84,7 @@ export async function searchByGate(
   const vectorStr = `[${embedding.join(",")}]`;
 
   // Learning-disabled gates search only the shared configuration embeddings
-  // (tenant_id IS NULL); the tenant's learnt evidence (pos/neg feedback, with
+  // (tenant_id IS NULL); the tenant's learned evidence (pos/neg feedback, with
   // tenant_id set) is excluded from the candidate set.
   const tenantFilter =
     options.includeLearned === false
@@ -127,6 +128,7 @@ export async function deleteBySource(
     );
 }
 
+/** Delete an embedding row by id. */
 export async function deleteById(id: number) {
   const db = getDb();
   await db.delete(embeddingsTable).where(eq(embeddingsTable.id, id));

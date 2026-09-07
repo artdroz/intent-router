@@ -1,11 +1,13 @@
 import type { FeedbackCorpusRow } from "../store/routing.js";
-import { LRN_PRECISION_FLOOR } from "./config.js";
+import { LRN_PRECISION_FLOOR } from "./constants.js";
 
+/** One feedback document for TF-IDF: the extracted keywords and the positive flag. */
 export type FeedbackDoc = {
   keywords: string[];
   positive: number;
 };
 
+/** Feedback corpus grouped by class id. */
 export type ClassDocs = Map<number, FeedbackDoc[]>;
 
 /** Group flat feedback corpus rows into a per-class map. */

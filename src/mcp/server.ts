@@ -34,6 +34,7 @@ function unauthorized(): never {
   throw new Response(null, { status: 401, statusText: "Unauthorized" });
 }
 
+/** Build the in-process MCP server with its tools and API-key authentication. */
 export function buildMcpServer(): FastMCP<McpSession> {
   const server = new FastMCP<McpSession>({
     name: "intent-router",

@@ -1,3 +1,27 @@
+/**
+ * Manage a tenant's API keys: create, disable, enable, extend, rename, list,
+ * and transfer gates between tenants.
+ *
+ * Prerequisite: DATABASE_URL points at a running Postgres. The tenant must
+ * already exist (see scripts/create-tenant.ts); tenant ids are UUIDs.
+ *
+ * Usage:
+ *   node dist/scripts/manage-keys.js <command> [flags]
+ *
+ * Commands and flags:
+ *   create   --tenant <id> --name <name> [--expires <days>]
+ *   disable  --tenant <id> --name <name>
+ *   enable   --tenant <id> --name <name>
+ *   extend   --tenant <id> --name <name> --days <days>
+ *   rename   --tenant <id> --old <name> --new <name>
+ *   transfer --from <tenant-id> --to <tenant-id>
+ *   list     --tenant <id>
+ *
+ * Output: `create` prints the plaintext key once (store it now); the others
+ * print a confirmation, or the key list. `transfer` moves the source tenant's
+ * gates to the target tenant (the routing audit trail stays with the source).
+ */
+
 import { initDb, closeDb } from "../src/store/db.js";
 import {
   createApiKey, disableApiKey, enableApiKey, extendApiKey,

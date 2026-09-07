@@ -1,5 +1,5 @@
 import type { Classifier, ClassificationResult } from "./types.js";
-import type { EmbedClient } from "../../lib/embed-client.js";
+import type { EmbedClient } from "../../clients/embed-client.js";
 import type { Gate } from "../../gates/types.js";
 import {
   LRN_MIN_VOTES,
@@ -9,11 +9,12 @@ import {
   SEM_FEEDBACK_WEIGHT,
   SEM_SIMILARITY_THRESHOLD,
   SEM_TOP_K,
-} from "../config.js";
+} from "../constants.js";
 import { buildResult } from "../utils.js";
 import { searchByGate } from "../../store/embeddings.js";
 import type { SearchResult } from "../../store/embeddings.js";
 
+/** Tunable semantic-classifier options, with defaults in `routing/constants.ts`. */
 export type SemanticOptions = {
   topK?: number;
   similarityThreshold?: number;
@@ -21,6 +22,7 @@ export type SemanticOptions = {
   feedbackWeight?: number;
 };
 
+/** Semantic classifier: nearest-neighbour search over utterance embeddings with veto guardrails. */
 export class SemanticClassifier implements Classifier {
   readonly name = "semantic" as const;
 
@@ -105,7 +107,7 @@ export function detectVetoedLabels(rows: SearchResult[]): Set<string> {
  *
  * 1. Drop negative guardrails (they are veto evidence, never positive signal)
  * 2. Convert distance → similarity (1 - distance)
- * 3. Apply source multiplier: config utterances get 1.2× bonus
+ * 3. Apply source multiplier: config utterances get 2.0× bonus
  * 4. Sum weighted similarities per class
  * 5. Normalize each sum by total → [0, 1]
  */

@@ -1,3 +1,22 @@
+/**
+ * Apply the Drizzle schema migrations, then exit.
+ *
+ * Takes a Postgres advisory lock for the whole run so concurrent migrators
+ * serialize. In production this runs as a one-shot Job / PreSync hook before
+ * the app rollout; locally it bootstraps a fresh database.
+ *
+ * Prerequisite: DATABASE_URL points at a running Postgres. The migrations
+ * live in drizzle/ and are located relative to this script, not the CWD.
+ *
+ * Usage:
+ *   npm run db:migrate:prod
+ *   # or directly (compiled build):
+ *   node dist/scripts/migrate.js
+ *
+ * Output: prints "Migrations complete." or the failure message. Side effect:
+ * brings the database schema up to date.
+ */
+
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";

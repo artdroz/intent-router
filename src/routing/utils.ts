@@ -61,6 +61,24 @@ export function pickBestLabel(entries: Map<string, ClassificationEntry>): {
   return { label: bestLabel, score: bestScore };
 }
 
+/** Round a probability to a fixed number of decimal places for client-facing output. */
+export function roundTo(value: number, decimals = 4): number {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+/** Round every entry in a label→score record for client-facing output. */
+export function roundScoreMap(
+  scores: Record<string, number>,
+  decimals = 4,
+): Record<string, number> {
+  const rounded: Record<string, number> = {};
+  for (const [label, score] of Object.entries(scores)) {
+    rounded[label] = roundTo(score, decimals);
+  }
+  return rounded;
+}
+
 /**
  * Neutralize request-body patterns that the company gateway/WAF flags before
  * forwarding text to the LLM/embedding proxy.
@@ -74,14 +92,17 @@ export function pickBestLabel(entries: Map<string, ClassificationEntry>): {
  */
 
 /** IPv4 addresses in the private / loopback / link-local ranges. */
-const PRIVATE_IP_RE = /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|169\.254\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/g;
+const PRIVATE_IP_RE =
+  /\b(?:10\.\d{1,3}\.\d{1,3}\.\d{1,3}|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|169\.254\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}|172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3})\b/g;
 
 export function sanitizeForProxy(text: string): string {
-  return text
-    .replace(/\.\.\//g, ".. /")
-    .replace(/\.\.\\/g, ".. \\")
-    // SSRF indicators the WAF flags in request bodies.
-    .replace(PRIVATE_IP_RE, (ip) => ip.replace(/\./g, "_"))
-    .replace(/\b0\.0\.0\.0\b/g, "0_0_0_0")
-    .replace(/\blocalhost\b/gi, "local-host");
+  return (
+    text
+      .replace(/\.\.\//g, ".. /")
+      .replace(/\.\.\\/g, ".. \\")
+      // SSRF indicators the WAF flags in request bodies.
+      .replace(PRIVATE_IP_RE, (ip) => ip.replace(/\./g, "_"))
+      .replace(/\b0\.0\.0\.0\b/g, "0_0_0_0")
+      .replace(/\blocalhost\b/gi, "local-host")
+  );
 }

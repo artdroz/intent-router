@@ -10,6 +10,7 @@ interface ClassParams extends RouteGenericInterface {
   Params: { name: string; label: string };
 }
 
+/** REST endpoints for gate and class CRUD under `/api/gates`. */
 export function gateRoutes(app: FastifyInstance) {
   app.post("/api/gates", async (req, reply) => {
     const input = createGateSchema.parse(req.body);

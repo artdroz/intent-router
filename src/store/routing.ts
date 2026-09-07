@@ -9,11 +9,13 @@ import {
 } from "./schema.js";
 import type { NewRoutingEvent } from "./schema.js";
 
+/** Insert a routing event row. */
 export async function insertRouteEvent(event: NewRoutingEvent) {
   const db = getDb();
   await db.insert(routingEvents).values(event);
 }
 
+/** Insert a feedback row linked to a routing event. */
 export async function insertFeedback(
   routeId: string,
   positive: number,
@@ -46,6 +48,7 @@ export async function updatePromotedKeywords(
     });
 }
 
+/** Return the promoted keywords for a (class, tenant) pair, or an empty list. */
 export async function getPromotedKeywords(classId: number, tenantId: string) {
   const db = getDb();
   const [row] = await db

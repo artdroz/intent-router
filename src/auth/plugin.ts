@@ -15,9 +15,14 @@ const ERROR_MESSAGES = {
   expired: "API key expired",
 } as const;
 
-// Registered with `fastify-plugin` so the onRequest hook and the request
-// decoration apply to the parent scope where the gate and routing routes are
-// registered, not just to this plugin's own encapsulated context.
+/**
+ * Fastify plugin that authenticates the REST lane with an `Authorization:
+ * Bearer <key>` header and decorates the request with the resolved `tenantId`.
+ *
+ * Registered with `fastify-plugin` so the hook and decoration apply to the
+ * parent scope where the gate and routing routes are registered, not just to
+ * this plugin's own encapsulated context.
+ */
 export const authPlugin = fp((app: FastifyInstance) => {
   app.decorateRequest("tenantId", "");
 

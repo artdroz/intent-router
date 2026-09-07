@@ -1,9 +1,14 @@
 import type { Gate } from "../../gates/types.js";
 
+/** The decision returned by the cascading router. */
 export type RouteResult = {
+  /** Predicted intent label. */
   label: string;
+  /** Probability of the predicted label (0–1). */
   score: number;
+  /** Cascade stage that produced the decision. */
   stage: "pre-cascade" | "llm" | "historical";
+  /** Per-class score distribution of the deciding stage. */
   scores: Record<string, number>;
 };
 
@@ -12,6 +17,7 @@ export interface Router {
   route(prompt: string, gate: Gate, tenantId: string): Promise<RouteResult>;
 }
 
+/** Tunable weights and thresholds for the cascade, with defaults in `routing/config.ts`. */
 export type CascadeOptions = {
   kwWeight?: number;
   semWeight?: number;

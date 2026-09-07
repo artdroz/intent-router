@@ -1,21 +1,29 @@
 import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { z } from "zod";
-import { addClassSchema, gateConfigSchema } from "../schema.js";
-import { GATE_MAX_CLASSES, GATE_MIN_CLASSES } from "../config.js";
+import {
+  addClassSchema,
+  gateConfigSchema,
+  GATE_MAX_CLASSES,
+  GATE_MAX_DESCRIPTION,
+  GATE_MIN_CLASSES,
+} from "../schema.js";
 
+/** A single default-gate definition from the static config file. */
 export const defaultGateSchema = z.object({
   name: z.string().min(2).max(100),
-  description: z.string().max(500).optional(),
+  description: z.string().max(GATE_MAX_DESCRIPTION).optional(),
   config: gateConfigSchema,
   classes: z.array(addClassSchema).min(GATE_MIN_CLASSES).max(GATE_MAX_CLASSES),
 });
 
+/** The whole default config file: a model→gate map plus gate definitions. */
 export const defaultGatesConfigSchema = z.object({
   models: z.record(z.string(), z.string()).default({}),
   gates: z.array(defaultGateSchema).default([]),
 });
 
+/** Types derived from the default-gate schemas. */
 export type DefaultGateDef = z.infer<typeof defaultGateSchema>;
 export type DefaultGatesConfig = z.infer<typeof defaultGatesConfigSchema>;
 

@@ -13,6 +13,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
+/** Drizzle custom type mapping a pgvector column to a `number[]`. */
 const vector = customType<{ data: number[]; driverData: string }>({
   dataType() {
     return "vector";
@@ -26,9 +27,11 @@ const vector = customType<{ data: number[]; driverData: string }>({
   },
 });
 
+/** Provenance of an embedding row: config, positive feedback, or negative guardrail. */
 export const EMBEDDING_SOURCES = ["config", "pos_feedback", "neg_feedback"] as const;
 export type EmbeddingSource = (typeof EMBEDDING_SOURCES)[number];
 
+/** Select/insert row types derived from the Drizzle tables below. */
 export type TenantRow = typeof tenants.$inferSelect;
 export type NewTenant = typeof tenants.$inferInsert;
 export type ApiKeyRow = typeof apiKeys.$inferSelect;
@@ -42,13 +45,14 @@ export type NewPromotedKeyword = typeof promotedKeywords.$inferInsert;
 export type RoutingEventRow = typeof routingEvents.$inferSelect;
 export type NewRoutingEvent = typeof routingEvents.$inferInsert;
 
+/** Tenants: the root of the ownership hierarchy. */
 export const tenants = pgTable("tenants", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: text("name").notNull().unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
-/* API Keys for requests not autenticated by LiteLLM proxy. */
+/** API keys for clients that do not authenticate through the LiteLLM proxy. */
 export const apiKeys = pgTable(
   "api_keys",
   {
@@ -67,6 +71,7 @@ export const apiKeys = pgTable(
   (t) => [uniqueIndex("uq_api_keys_tenant_name").on(t.tenantId, t.name)],
 );
 
+/** Gates: routing taxonomies; `tenant_id` is NULL for system gates. */
 export const gates = pgTable(
   "gates",
   {
@@ -83,6 +88,7 @@ export const gates = pgTable(
   (t) => [index("idx_gates_tenant").on(t.tenantId)],
 );
 
+/** Classes: one intent within a gate, with its classifier anchors. */
 export const classes = pgTable(
   "classes",
   {
@@ -107,14 +113,15 @@ export const classes = pgTable(
   (t) => [uniqueIndex("uq_class").on(t.gateName, t.label), index("idx_classes_gate").on(t.gateId)],
 );
 
+/** Embeddings: the semantic classifier's searchable vectors, tagged by source. */
 export const embeddings = pgTable(
   "embeddings",
   {
     id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
-    // "config" = per-class config embedding; "pos_feedback" = tenant-specific learnt
+    // "config" = per-class config embedding; "pos_feedback" = tenant-specific learned
     // embedding; "neg_feedback" = negative guardrail (explicit-veto evidence)
     source: text("source").notNull().default("config").$type<EmbeddingSource>(),
-    // NULL = config embeddings; non-NULL = tenant-specific learnt embeddings
+    // NULL = config embeddings; non-NULL = tenant-specific learned embeddings
     tenantId: uuid("tenant_id").references(() => tenants.id, { onDelete: "cascade" }),
     classId: integer("class_id")
       .notNull()
@@ -133,7 +140,7 @@ export const embeddings = pgTable(
     uniqueIndex("uq_embedding_class_content")
       .on(t.classId, t.contentHash)
       .where(sql`${t.tenantId} IS NULL`),
-    // Tenant-specific learnt embeddings: dedupe by (tenantId, classId, contentHash, source),
+    // Tenant-specific learned embeddings: dedupe by (tenantId, classId, contentHash, source),
     // so a positive and a negative guardrail for the same utterance can coexist.
     uniqueIndex("uq_embedding_tenant_class_content")
       .on(t.tenantId, t.classId, t.contentHash, t.source)
@@ -141,6 +148,7 @@ export const embeddings = pgTable(
   ],
 );
 
+/** Promoted keywords: per (tenant, class) keywords learned via TF-IDF. */
 export const promotedKeywords = pgTable(
   "promoted_keywords",
   {
@@ -158,6 +166,7 @@ export const promotedKeywords = pgTable(
   (t) => [primaryKey({ columns: [t.tenantId, t.classId] })],
 );
 
+/** Feedback: one user rating linked to a routing event. */
 export const feedback = pgTable(
   "feedback",
   {
@@ -172,6 +181,7 @@ export const feedback = pgTable(
   (t) => [index("idx_feedback_route").on(t.routeId)],
 );
 
+/** Routing events: the audit trail, one row per routing request. */
 export const routingEvents = pgTable(
   "routing_events",
   {
@@ -185,9 +195,9 @@ export const routingEvents = pgTable(
     predictedClassId: integer("predicted_class_id").references(() => classes.id, {
       onDelete: "set null",
     }),
-    stage: text("stage").notNull(), // 'keyword' | 'semantic' | 'llm'
+    stage: text("stage").notNull(), // 'pre-cascade' | 'llm' | 'historical'
     scores: jsonb("scores").notNull(), // { label: score, ... }
-    channel: text("channel").notNull().default("rest"), // 'rest' | 'litellm'
+    channel: text("channel").notNull().default("rest"), // 'rest' | 'litellm' | 'mcp'
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_routing_gate").on(t.gateId)],

@@ -1,12 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  LlmClassifier,
-  buildSystemPrompt,
-  buildSchema,
-  parseJsonResponse,
-  parseResponse,
-} from "./llm.js";
-import type { LlmClient } from "../../lib/llm-client.js";
+import { LlmClassifier, buildSystemPrompt, buildSchema, parseResponse } from "./llm.js";
+import type { LlmClient } from "../../clients/llm-client.js";
 import type { Gate, GateClass } from "../../gates/types.js";
 
 function makeClass(label: string, description?: string): GateClass {
@@ -72,50 +66,6 @@ describe("parseResponse", () => {
 
     expect(scores.get("a(b")).toBe(1);
     expect(scores.get("python")).toBe(0);
-  });
-});
-
-describe("parseJsonResponse", () => {
-  it("parses a structured distribution and clamps negative scores to 0", () => {
-    const raw = '{"reasoning":"r","distribution":{"deploy":2,"debug":-1}}';
-    const { scores, evidence } = parseJsonResponse(raw, ["deploy", "debug"]);
-
-    expect(scores.get("deploy")).toBe(2);
-    expect(scores.get("debug")).toBe(0);
-    expect(evidence.get("deploy")).toEqual(["r"]);
-    expect(evidence.get("debug")).toEqual(["r"]);
-  });
-
-  it("treats missing or non-numeric distribution entries as 0", () => {
-    const raw = '{"distribution":{"deploy":1,"debug":"high"}}';
-    const { scores } = parseJsonResponse(raw, ["deploy", "debug", "other"]);
-
-    expect(scores.get("deploy")).toBe(1);
-    expect(scores.get("debug")).toBe(0);
-    expect(scores.get("other")).toBe(0);
-  });
-
-  it("strips markdown code fences before parsing", () => {
-    const raw = '```json\n{"reasoning":"r","distribution":{"deploy":1,"debug":0}}\n```';
-    const { scores } = parseJsonResponse(raw, ["deploy", "debug"]);
-
-    expect(scores.get("deploy")).toBe(1);
-    expect(scores.get("debug")).toBe(0);
-  });
-
-  it("falls back to regex when the JSON is unparseable", () => {
-    const raw = "definitely not json, just deploy it";
-    const { scores } = parseJsonResponse(raw, ["deploy", "debug"]);
-
-    expect(scores.get("deploy")).toBe(1);
-    expect(scores.get("debug")).toBe(0);
-  });
-
-  it("returns empty scores when no label can be recovered", () => {
-    const { scores, evidence } = parseJsonResponse("gibberish", ["deploy", "debug"]);
-
-    expect(scores.size).toBe(0);
-    expect(evidence.size).toBe(0);
   });
 });
 

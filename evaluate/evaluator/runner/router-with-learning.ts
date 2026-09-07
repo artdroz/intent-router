@@ -40,8 +40,8 @@ import { CascadingRouter, shouldCascade } from "../../../src/routing/router/casc
 import { computeMargin, computeEntropy } from "../../../src/routing/utils.js";
 import type { ClassificationResult } from "../../../src/routing/classifiers/types.js";
 import type { RouteResult } from "../../../src/routing/router/types.js";
-import { initEmbedClient } from "../../../src/lib/embed-client.js";
-import { initLlmClient } from "../../../src/lib/llm-client.js";
+import { initEmbedClient } from "../../../src/clients/embed-client.js";
+import { initLlmClient } from "../../../src/clients/llm-client.js";
 import {
   initRouter,
   submitFeedback as submitRouteFeedback,

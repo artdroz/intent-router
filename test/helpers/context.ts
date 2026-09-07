@@ -1,5 +1,5 @@
-import { initEmbedClient } from "../../src/lib/embed-client.js";
-import { initLlmClient } from "../../src/lib/llm-client.js";
+import { initEmbedClient } from "../../src/clients/embed-client.js";
+import { initLlmClient } from "../../src/clients/llm-client.js";
 import { initRouter } from "../../src/routing/service.js";
 import {
   connectDb,

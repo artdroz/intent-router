@@ -1,8 +1,10 @@
 import { sanitizeForProxy } from "../routing/utils.js";
+import { UpstreamError } from "../errors.js";
 
+/** A single chat message. */
 export type LlmMessage = { role: string; content: string };
 
-/** Support json schema response formats */
+/** Requested response format for the chat-completions endpoint. */
 export type LlmResponseFormat =
   | { type: "json_object" }
   | {
@@ -14,10 +16,12 @@ export type LlmResponseFormat =
       };
     };
 
+/** Client for the upstream chat-completions endpoint. */
 export type LlmClient = {
   complete(messages: LlmMessage[], responseFormat?: LlmResponseFormat): Promise<string>;
 };
 
+/** Build a chat-completions client bound to one upstream model endpoint. */
 export function initLlmClient(config: {
   baseUrl: string;
   model: string;
@@ -31,9 +35,12 @@ export function initLlmClient(config: {
   };
 }
 
+/** Hard timeout on the upstream LLM call, so a hung proxy cannot hang a request. */
+const LLM_TIMEOUT_MS = 30_000;
+
 /**
  * OpenAI-compatible chat completions API.
- * POST /v1/chat/completions  →  { choices: [{ message: { content } }] }
+ * POST /v1/chat/completions → { choices: [{ message: { content } }] }
  */
 async function callChatAPI(
   baseUrl: string,
@@ -48,25 +55,33 @@ async function callChatAPI(
   };
   if (responseFormat) body.response_format = responseFormat;
 
-  const res = await fetch(`${baseUrl}/v1/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-    },
-    body: JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${baseUrl}/v1/chat/completions`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    });
+  } catch (err) {
+    throw new UpstreamError(
+      `LLM request failed: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => "");
-    throw new Error(`LLM HTTP ${res.status}: ${errBody.slice(0, 200)}`);
+    throw new UpstreamError(`LLM HTTP ${res.status}: ${errBody.slice(0, 200)}`);
   }
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
   const content = json.choices?.[0]?.message?.content;
-  if (!content) throw new Error("LLM response missing choices[0].message.content");
+  if (!content) throw new UpstreamError("LLM response missing choices[0].message.content");
 
   return content;
 }
