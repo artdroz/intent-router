@@ -35,8 +35,10 @@ export function initLlmClient(config: {
   };
 }
 
-/** Hard timeout on the upstream LLM call, so a hung proxy cannot hang a request. */
-const LLM_TIMEOUT_MS = 30_000;
+/**
+ * Hard timeout on the upstream LLM call, so a hung proxy cannot hang a request.
+ */
+const LLM_TIMEOUT_MS = 8_000;
 
 /**
  * OpenAI-compatible chat completions API.

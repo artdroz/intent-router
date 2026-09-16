@@ -25,7 +25,7 @@ constraints listed below are enforced, not advisory.
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | REST                        | `Authorization: Bearer <api-key>`. Missing, unknown, disabled, or expired keys are rejected with a distinct `401`.                  |
 | MCP                         | Same `verifyApiKey` check, applied in the MCP server's `authenticate` callback. Connections without an HTTP request context (stdio) are rejected. |
-| LiteLLM / OpenAI-compatible | `intent-router-token` header matching the configured proxy token **and** an `intent-router-tenant` header naming the tenant.         |
+| LiteLLM / OpenAI-compatible | `intent-router-token` header matching the configured proxy token **and** an `intent-router-tenant` header naming the tenant. With `AUTO_CREATE_TENANT` enabled, an unknown tenant name is created on first sight instead of being rejected. |
 
 API keys are generated as `sk-<uuid>`, stored as a SHA-256 hash, and managed through the operator
 scripts (`scripts/manage-keys.ts`).
@@ -252,3 +252,14 @@ The routing decision is JSON-serialized into `choices[0].message.content`.
 
 **Errors:** `400` (validation, streaming unsupported, no user message), `401` (bad token/tenant),
 `404` (gate not found), `500` (unhandled error).
+
+#### `GET /v1/intent-router/gates/:name/classes`
+
+Service-level introspection for the LiteLLM classifier plugin: returns the labels of a gate's
+classes so the plugin can verify its `tier_definitions` match. Token-only (no tenant header).
+
+```json
+{ "classes": ["simple", "medium", "complex"] }
+```
+
+**Errors:** `401` (bad token), `404` (gate not found).

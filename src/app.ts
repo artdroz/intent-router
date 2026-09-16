@@ -38,6 +38,7 @@ const envSchema = {
     LLM_API_KEY: { type: "string", nullable: true },
     MAX_PROMPT_LENGTH: { type: "number", default: 50000 },
     LITELLM_PROXY_TOKEN: { type: "string" },
+    AUTO_CREATE_TENANT: { type: "boolean", default: false },
     DEFAULT_GATES_CONFIG_PATH: { type: "string", default: "config/default-gates.yaml" },
   },
 } as const;
@@ -57,6 +58,7 @@ declare module "fastify" {
       LLM_API_KEY?: string;
       MAX_PROMPT_LENGTH: number;
       LITELLM_PROXY_TOKEN: string;
+      AUTO_CREATE_TENANT: boolean;
       DEFAULT_GATES_CONFIG_PATH: string;
     };
   }

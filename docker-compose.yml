@@ -73,12 +73,15 @@ services:
       MCP_PORT: "8081"
       LOG_LEVEL: "${LOG_LEVEL:-info}"
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/intent-router
-      # Zero-key local default: Ollama on the host.
-      EMBED_BASE_URL: http://host.docker.internal:11434
-      EMBED_MODEL: nomic-embed-text
-      LLM_BASE_URL: http://host.docker.internal:11434
-      LLM_MODEL: qwen2.5:7b
-      LITELLM_PROXY_TOKEN: dev-token
+      # Zero-key local default: Ollama on the host. Override via .env.
+      EMBED_BASE_URL: "${EMBED_BASE_URL:-http://host.docker.internal:11434}"
+      EMBED_MODEL: "${EMBED_MODEL:-nomic-embed-text}"
+      EMBED_API_KEY: "${EMBED_API_KEY:-}"
+      LLM_BASE_URL: "${LLM_BASE_URL:-http://host.docker.internal:11434}"
+      LLM_MODEL: "${LLM_MODEL:-qwen2.5:7b}"
+      LLM_API_KEY: "${LLM_API_KEY:-}"
+      LITELLM_PROXY_TOKEN: "${LITELLM_PROXY_TOKEN:-litellm-proxy-token}"
+      AUTO_CREATE_TENANT: "${AUTO_CREATE_TENANT:-true}"
       DEFAULT_GATES_CONFIG_PATH: config/default-gates.yaml
       MAX_PROMPT_LENGTH: "50000"
     extra_hosts:

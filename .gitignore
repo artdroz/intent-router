@@ -24,6 +24,3 @@ coverage/
 # Data artifacts (generated status, local exports)
 data/
 *.db
-
-# Composer
-docker-compose.yml

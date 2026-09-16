@@ -23,13 +23,22 @@ export class AppError extends Error {
   readonly statusCode: number;
   readonly code: ErrorCode;
   readonly details?: unknown;
+  /** True when the message is safe to surface to clients even on a 5xx. */
+  readonly exposeMessage: boolean;
 
-  constructor(message: string, statusCode: number, code: ErrorCode, details?: unknown) {
+  constructor(
+    message: string,
+    statusCode: number,
+    code: ErrorCode,
+    details?: unknown,
+    exposeMessage = false,
+  ) {
     super(message);
     this.name = new.target.name;
     this.statusCode = statusCode;
     this.code = code;
     this.details = details;
+    this.exposeMessage = exposeMessage;
   }
 }
 
@@ -77,8 +86,23 @@ export class UpstreamError extends AppError {
 
 /** 500 — unhandled programmer errors and "should not happen" cases. */
 export class InternalError extends AppError {
-  constructor(message: string) {
-    super(message, 500, "internal_error");
+  constructor(message: string, exposeMessage = false) {
+    super(message, 500, "internal_error", undefined, exposeMessage);
+  }
+}
+
+/**
+ * 500 — stored embedding vectors have a different dimensionality than the
+ * configured embedding model. The message is safe and actionable, so it is
+ * surfaced to clients instead of the generic "Internal server error".
+ */
+export class EmbeddingDimensionMismatchError extends InternalError {
+  constructor(storedDims: number, queryDims: number) {
+    super(
+      `Embedding dimension mismatch: stored vectors are ${storedDims}-dim but the configured ` +
+        `embedding model returns ${queryDims}-dim; re-seed the embeddings to match the model`,
+      true,
+    );
   }
 }
 
@@ -116,7 +140,8 @@ export function toAppError(err: unknown): AppError {
 
 /** REST lane error body: `{ error, details? }`. */
 export function restErrorBody(err: AppError): { error: string; details?: unknown } {
-  const masked = err.statusCode >= 500 ? "Internal server error" : err.message;
+  const masked =
+    err.statusCode >= 500 && !err.exposeMessage ? "Internal server error" : err.message;
   return {
     error: masked,
     ...(err.details !== undefined ? { details: err.details } : {}),
@@ -129,7 +154,7 @@ export function openaiErrorBody(err: AppError): {
 } {
   return {
     error: {
-      message: err.statusCode >= 500 ? "Internal server error" : err.message,
+      message: err.statusCode >= 500 && !err.exposeMessage ? "Internal server error" : err.message,
       type: openaiType(err.statusCode),
       code: err.statusCode,
     },

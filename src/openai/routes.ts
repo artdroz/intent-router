@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { findTenantByName } from "../store/tenants.js";
+import { getGateByName } from "../store/gates.js";
+import { findOrCreateTenant, findTenantByName } from "../store/tenants.js";
 import { chatCompletionRequestSchema } from "./schema.js";
 import { ChatCompletionError } from "./types.js";
 import { handleChatCompletion, listModels } from "./service.js";
@@ -10,19 +11,19 @@ export const TENANT_HEADER = "intent-router-tenant";
 /** Header carrying the shared service token, set by the LiteLLM proxy. */
 export const ROUTER_TOKEN_HEADER = "intent-router-token";
 
-/** OpenAI-compatible surface: `/v1/models` and `/v1/chat/completions`. */
+/** OpenAI-compatible surface: `/v1/models`, `/v1/chat/completions`, and a token-only gate introspection route. */
 export function openaiRoutes(app: FastifyInstance, defaultModels: Record<string, string>) {
   app.decorateRequest("tenantId", "");
 
-  // LiteLLM proxy vouches for the tenant. The service only requires a shared
-  // service token plus a tenant header, then map the tenant name to its id.
+  // LiteLLM proxy vouches for the tenant. Every route requires the shared token;
+  // the tenant header is required everywhere except the gate introspection route.
   app.addHook("onRequest", async (req: FastifyRequest, reply: FastifyReply) => {
-    const token = req.headers[ROUTER_TOKEN_HEADER];
-    if (token !== req.server.config.LITELLM_PROXY_TOKEN) {
+    if (!serviceTokenMatches(req)) {
       return reply
         .status(401)
         .send(openaiError(401, "authentication_error", "Invalid service token"));
     }
+    if (isGateIntrospection(req)) return;
 
     const tenantName = req.headers[TENANT_HEADER];
     if (typeof tenantName !== "string" || tenantName.length === 0) {
@@ -31,7 +32,9 @@ export function openaiRoutes(app: FastifyInstance, defaultModels: Record<string,
         .send(openaiError(401, "authentication_error", `Missing "${TENANT_HEADER}" header`));
     }
 
-    const tenant = await findTenantByName(tenantName);
+    const tenant = req.server.config.AUTO_CREATE_TENANT
+      ? await findOrCreateTenant(tenantName)
+      : await findTenantByName(tenantName);
     if (!tenant) {
       return reply
         .status(401)
@@ -39,6 +42,18 @@ export function openaiRoutes(app: FastifyInstance, defaultModels: Record<string,
     }
 
     req.tenantId = tenant.id;
+  });
+
+  // Service-level introspection used by the LiteLLM classifier plugin to verify
+  // class-name consistency. Token-only (no tenant header).
+  app.get<{ Params: { name: string } }>("/v1/intent-router/gates/:name/classes", async (req, reply) => {
+    const raw = await getGateByName(req.params.name);
+    if (!raw) {
+      return reply
+        .status(404)
+        .send(openaiError(404, "invalid_request_error", `Gate "${req.params.name}" not found`));
+    }
+    return { classes: raw.classes.map((c) => c.label) };
   });
 
   // LiteLLM declares models in its own config. This is solely for debugging and
@@ -62,6 +77,14 @@ export function openaiRoutes(app: FastifyInstance, defaultModels: Record<string,
 
 function openaiError(status: number, type: string, message: string) {
   return { error: { message, type, code: status } };
+}
+
+function serviceTokenMatches(req: FastifyRequest): boolean {
+  return req.headers[ROUTER_TOKEN_HEADER] === req.server.config.LITELLM_PROXY_TOKEN;
+}
+
+function isGateIntrospection(req: FastifyRequest): boolean {
+  return req.url.startsWith("/v1/intent-router/gates/");
 }
 
 /**

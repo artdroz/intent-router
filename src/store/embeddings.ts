@@ -2,6 +2,7 @@ import { eq, and, sql, isNull, isNotNull, or } from "drizzle-orm";
 import { createHash } from "node:crypto";
 import { getDb } from "./db.js";
 import { embeddings as embeddingsTable } from "./schema.js";
+import { EmbeddingDimensionMismatchError } from "../errors.js";
 import type { EmbeddingRow, NewEmbedding, EmbeddingSource } from "./schema.js";
 
 export type { EmbeddingRow, NewEmbedding };
@@ -91,17 +92,31 @@ export async function searchByGate(
       ? isNull(embeddingsTable.tenantId)
       : or(eq(embeddingsTable.tenantId, tenantId), isNull(embeddingsTable.tenantId));
 
-  const rows = await db
-    .select({
-      ...SEARCH_COLUMNS,
-      distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
-    })
-    .from(embeddingsTable)
-    .where(and(eq(embeddingsTable.gateName, gateName), tenantFilter))
-    .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
-    .limit(topK);
+  try {
+    return await db
+      .select({
+        ...SEARCH_COLUMNS,
+        distance: sql<number>`${embeddingsTable.embedding} <=> ${vectorStr}::vector`,
+      })
+      .from(embeddingsTable)
+      .where(and(eq(embeddingsTable.gateName, gateName), tenantFilter))
+      .orderBy(sql`${embeddingsTable.embedding} <=> ${vectorStr}::vector`)
+      .limit(topK);
+  } catch (err) {
+    const mismatch = parseDimensionMismatch(err);
+    if (mismatch) {
+      throw new EmbeddingDimensionMismatchError(mismatch.storedDims, mismatch.queryDims);
+    }
+    throw err;
+  }
+}
 
-  return rows;
+/** Extract stored-vs-query dimensions from a pgvector mismatch error, if any. */
+function parseDimensionMismatch(err: unknown): { storedDims: number; queryDims: number } | null {
+  if (!(err instanceof Error)) return null;
+  const match = /different vector dimensions (\d+) and (\d+)/.exec(err.message);
+  if (!match) return null;
+  return { storedDims: Number(match[1]), queryDims: Number(match[2]) };
 }
 
 /**

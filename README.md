@@ -116,6 +116,7 @@ Environment variables are validated at startup (see `.env.example`):
 | `LLM_API_KEY`              | no       | API key for the LLM endpoint                     |
 | `MAX_PROMPT_LENGTH`        | no       | Max prompt length accepted for routing (50000)   |
 | `LITELLM_PROXY_TOKEN`      | yes      | Shared service token for the OpenAI-compatible surface |
+| `AUTO_CREATE_TENANT`       | no       | Auto-create unknown tenants on the LiteLLM lane (false) |
 | `PORT` / `MCP_PORT`        | no       | REST / MCP listen ports (8080 / 8081)            |
 | `DEFAULT_GATES_CONFIG_PATH`| no       | Path to the default-gates YAML (see below)       |
 

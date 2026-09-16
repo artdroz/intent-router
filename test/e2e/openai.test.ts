@@ -115,6 +115,21 @@ describe("OpenAI-compatible lane", () => {
     expect(res.status).toBe(400);
   });
 
+  it("lists the classes of a gate", async () => {
+    const res = await fetch(`${running.baseUrl}/v1/intent-router/gates/ops/classes`, {
+      headers: { "intent-router-token": running.token },
+    });
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.classes).toEqual(["deploy", "debug"]);
+  });
+
+  it("rejects the classes route without a service token", async () => {
+    const res = await fetch(`${running.baseUrl}/v1/intent-router/gates/ops/classes`);
+    expect(res.status).toBe(401);
+  });
+
   it("maps an unknown gate to 404", async () => {
     const res = await fetch(`${running.baseUrl}/v1/chat/completions`, {
       method: "POST",
