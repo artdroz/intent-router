@@ -122,7 +122,10 @@ export async function submitFeedback(input: FeedbackInput, tenantId: string): Pr
     keywords.length > 0 ? keywords : undefined,
   );
 
-  await applyEmbeddingFeedback(event, input);
+  // Fire-and-forget: the feedback row is already durable, so respond without
+  // waiting for the embedding write. applyEmbeddingFeedback swallows its own
+  // failures; the evidence is recoverable from the feedback row if needed.
+  void applyEmbeddingFeedback(event, input);
 }
 
 /**

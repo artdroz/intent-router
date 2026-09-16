@@ -57,18 +57,20 @@ describe("submitFeedback (embedding learning)", () => {
 
     await submitFeedback({ routeId: "r_abc", positive: true }, "tenant-1");
 
-    expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "neg_feedback");
-    expect(insertMany).toHaveBeenCalledWith([
-      expect.objectContaining({
-        tenantId: "tenant-1",
-        classId: 42,
-        gateName: "ops",
-        label: "deploy",
-        content: "deploy the app",
-        source: "pos_feedback",
-        embedding: [0.1, 0.2, 0.3],
-      }),
-    ]);
+    await vi.waitFor(() => {
+      expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "neg_feedback");
+      expect(insertMany).toHaveBeenCalledWith([
+        expect.objectContaining({
+          tenantId: "tenant-1",
+          classId: 42,
+          gateName: "ops",
+          label: "deploy",
+          content: "deploy the app",
+          source: "pos_feedback",
+          embedding: [0.1, 0.2, 0.3],
+        }),
+      ]);
+    });
   });
 
   it("negative feedback stores a neg_feedback guardrail and clears the positive embedding", async () => {
@@ -77,15 +79,17 @@ describe("submitFeedback (embedding learning)", () => {
 
     await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
 
-    expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "pos_feedback");
-    expect(insertMany).toHaveBeenCalledWith([
-      expect.objectContaining({
-        source: "neg_feedback",
-        classId: 42,
-        label: "deploy",
-        content: "deploy the app",
-      }),
-    ]);
+    await vi.waitFor(() => {
+      expect(deleteBySource).toHaveBeenCalledWith("tenant-1", 42, "deploy the app", "pos_feedback");
+      expect(insertMany).toHaveBeenCalledWith([
+        expect.objectContaining({
+          source: "neg_feedback",
+          classId: 42,
+          label: "deploy",
+          content: "deploy the app",
+        }),
+      ]);
+    });
   });
 
   it("skips negative feedback learning when the error is not confident", async () => {
@@ -117,7 +121,7 @@ describe("submitFeedback (embedding learning)", () => {
 
     await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
 
-    expect(insertMany).toHaveBeenCalled();
+    await vi.waitFor(() => expect(insertMany).toHaveBeenCalled());
   });
 
   it("persists feedback even when embedding fails", async () => {
