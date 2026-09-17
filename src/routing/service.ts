@@ -85,7 +85,9 @@ export async function route(
       prompt: input.prompt,
       predictedClassId: predictedClass.id,
       stage: result.stage,
-      scores: result.scores,
+      scores: result.preCascadeScores,
+      margin: result.margin,
+      entropy: result.entropy,
       channel,
     });
   }
@@ -151,10 +153,11 @@ async function applyEmbeddingFeedback(event: RoutingEventRow, input: FeedbackInp
     const predictedClass = await gateStore.getClassById(event.predictedClassId);
     if (!predictedClass) return;
 
-    // Only learn from confident errors: a wrong answer on a flat distribution is
-    // noise, not a "this intent is confusing" signal. Skip guardrails whose
-    // top-2 margin is too small (or unknown), so ambiguous errors can't veto intents.
-    if (!input.positive) {
+    // Only learn from confident errors. LLM/historical stages commit to a bare
+    // label (no distribution), so any miss there is a confident error. A
+    // pre-cascade miss is confident only when the top-2 margin is large enough;
+    // a flat distribution means the error was ambiguous noise.
+    if (!input.positive && event.stage === "pre-cascade") {
       const margin = topTwoMargin(event.scores);
       if (margin === null || margin < LRN_NEG_MARGIN - MARGIN_EPSILON) return;
     }

@@ -64,6 +64,14 @@ export function buildSchema(_labels: string[]): undefined {
   return undefined;
 }
 
+/** Regex-scan the raw answer for the first standalone label word (case-insensitive). */
+export function parseLabel(raw: string, labels: string[]): string | null {
+  const pattern = new RegExp(`\\b(?:${labels.map(escapeRegExp).join("|")})\\b`, "i");
+  const match = raw.match(pattern);
+  if (!match) return null;
+  return labels.find((label) => label.toLowerCase() === match[0].toLowerCase()) ?? null;
+}
+
 /**
  * Regex-only parse: skip JSON entirely and grab the first label appearing as
  * a standalone word in the raw answer. The matched label gets 1.0; every
@@ -81,13 +89,8 @@ export function parseResponse(
     evidence.set(label, []);
   }
 
-  const pattern = new RegExp(`\\b(?:${labels.map(escapeRegExp).join("|")})\\b`, "i");
-  const match = raw.match(pattern);
-
-  if (match) {
-    const matched = labels.find((label) => label.toLowerCase() === match[0].toLowerCase());
-    if (matched) scores.set(matched, 1);
-  }
+  const matched = parseLabel(raw, labels);
+  if (matched) scores.set(matched, 1);
 
   return { scores, evidence };
 }

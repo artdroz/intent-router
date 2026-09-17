@@ -43,6 +43,13 @@
       "when": 1788708494185,
       "tag": "0005_slow_medusa",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789652247418,
+      "tag": "0006_natural_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

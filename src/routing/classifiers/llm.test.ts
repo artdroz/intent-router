@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { LlmClassifier, buildSystemPrompt, buildSchema, parseResponse } from "./llm.js";
+import { LlmClassifier, buildSystemPrompt, buildSchema, parseResponse, parseLabel } from "./llm.js";
 import type { LlmClient } from "../../clients/llm-client.js";
 import type { Gate, GateClass } from "../../gates/types.js";
 
@@ -66,6 +66,13 @@ describe("parseResponse", () => {
 
     expect(scores.get("a(b")).toBe(1);
     expect(scores.get("python")).toBe(0);
+  });
+});
+
+describe("parseLabel", () => {
+  it("returns the matched label or null when absent", () => {
+    expect(parseLabel("This needs a full debug pass", ["deploy", "debug"])).toBe("debug");
+    expect(parseLabel("unrelated gibberish", ["deploy", "debug"])).toBeNull();
   });
 });
 

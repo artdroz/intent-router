@@ -6,7 +6,7 @@ kind: CronJob
 metadata:
   name: intent-router-keyword-promotion
 spec:
-  schedule: "0 * * * *"              # hourly
+  schedule: "0 0 */1 * *"            # every 1 day
   concurrencyPolicy: Forbid          # never run two promotions at once
   startingDeadlineSeconds: 300       # give up a missed schedule after 5 min
   successfulJobsHistoryLimit: 3

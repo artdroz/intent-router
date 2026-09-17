@@ -8,8 +8,14 @@ export type RouteResult = {
   score: number;
   /** Cascade stage that produced the decision. */
   stage: "pre-cascade" | "llm" | "historical";
-  /** Per-class score distribution of the deciding stage. */
+  /** Per-class score distribution of the deciding stage (client-facing). */
   scores: Record<string, number>;
+  /** Pre-cascade distribution; null when no pre-cascade ran. */
+  preCascadeScores: Record<string, number> | null;
+  /** Pre-cascade relative top-1/top-2 margin; null when no pre-cascade ran. */
+  margin: number | null;
+  /** Pre-cascade normalized entropy; null when no pre-cascade ran. */
+  entropy: number | null;
 };
 
 export interface Router {

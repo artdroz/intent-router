@@ -6,7 +6,7 @@ const app = await buildApp();
 
 // In-process MCP server (HTTP transport). Shares the same DB/LLM/embed
 // clients and the same API-key auth as the REST surface.
-const mcp = buildMcpServer();
+const mcp = buildMcpServer(app.config);
 await mcp.start({
   transportType: "httpStream",
   httpStream: { host: "0.0.0.0", port: app.config.MCP_PORT },

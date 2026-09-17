@@ -1,0 +1,93 @@
+# Periodic internal-learning Job. Runs `node dist/scripts/internal-learning.js`
+# from the SAME image as the app, against the app DB (app-db-secret) and the
+# same embedding endpoint as the app. The judge model is a separate LLM
+# (JUDGE_* env vars) so a slow judge cannot affect the request path.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: intent-router-internal-learning
+spec:
+  schedule: "0 0 */3 * *" # every 3 days
+  concurrencyPolicy: Forbid # never run two learning passes at once
+  startingDeadlineSeconds: 600 # give up a missed schedule after 10 min
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 3
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+          containers:
+            - name: internal-learning
+              image: intent-router:latest
+              imagePullPolicy: IfNotPresent # local: image already loaded into the cluster (kind load)
+              command: ["node", "dist/scripts/internal-learning.js"]
+              env:
+                - name: DATABASE_URL
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-db-secret
+                      key: DATABASE_URL
+                - name: JUDGE_MODEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: JUDGE_MODEL
+                - name: JUDGE_BASE_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: JUDGE_BASE_URL
+                - name: JUDGE_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: JUDGE_API_KEY
+                      optional: true
+                - name: EMBED_API_KEY
+                  valueFrom:
+                    secretKeyRef:
+                      name: app-secret
+                      key: EMBED_API_KEY
+                      optional: true
+                - name: EMBED_BASE_URL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: EMBED_BASE_URL
+                - name: EMBED_MODEL
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: EMBED_MODEL
+                - name: EMBED_DIMS
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: EMBED_DIMS
+                      optional: true
+                - name: INTERNAL_LEARNING_BUDGET
+                  valueFrom:
+                    configMapKeyRef:
+                      name: intent-router-config
+                      key: INTERNAL_LEARNING_BUDGET
+                      optional: true
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 128Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]

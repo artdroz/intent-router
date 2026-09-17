@@ -63,6 +63,19 @@ export const LRN_NEG_MARGIN = 0.2;
  */
 export const MARGIN_EPSILON = 1e-9;
 
+// Internal learning (LLM-as-judge)
+
+/** Global judge-call budget per run; overridable via `INTERNAL_LEARNING_BUDGET`. */
+export const JUDGE_BUDGET_DEFAULT = 50;
+/** Max candidates a single (tenant, gate) pair contributes per run. */
+export const JUDGE_PER_PAIR_CAP = 4;
+/** Max candidates a single predicted class contributes within a pair. */
+export const JUDGE_PER_CLASS_CAP = 1;
+/** Fraction of the budget spent exploring confident events (confident-error coverage). */
+export const JUDGE_EXPLORE_RATIO = 0.1;
+/** Watermark key for the judge's routing-event cursor. */
+export const JUDGE_WATERMARK_KEY = "judge_last_event_id";
+
 /** Function words removed before keyword extraction/matching (learning noise filter). */
 export const STOPWORDS = new Set([
   "a",

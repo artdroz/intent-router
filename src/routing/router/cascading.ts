@@ -107,6 +107,9 @@ export class CascadingRouter implements Router {
       score: sorted[0][1].prob,
       stage: "pre-cascade",
       scores: entriesToScores(aggregated),
+      preCascadeScores: entriesToScores(aggregated),
+      margin: computeRelativeMargin(sorted),
+      entropy: computeEntropy(sorted),
     };
 
     return { result, kwResult, semResult, sorted };
@@ -122,7 +125,15 @@ export class CascadingRouter implements Router {
     const { label, score } = pickBestLabel(llmResult.entries);
 
     if (label !== null) {
-      return { label, score, stage: "llm", scores: entriesToScores(llmResult.entries) };
+      return {
+        label,
+        score,
+        stage: "llm",
+        scores: entriesToScores(llmResult.entries),
+        preCascadeScores: preCascade?.preCascadeScores ?? null,
+        margin: preCascade?.margin ?? null,
+        entropy: preCascade?.entropy ?? null,
+      };
     }
 
     // LLM produced no usable answer — degrade gracefully to pre-cascade.
@@ -133,7 +144,15 @@ export class CascadingRouter implements Router {
     if (historical) {
       const scores: Record<string, number> = {};
       for (const c of gate.classes) scores[c.label] = c.label === historical ? 1 : 0;
-      return { label: historical, score: 0, stage: "historical", scores };
+      return {
+        label: historical,
+        score: 0,
+        stage: "historical",
+        scores,
+        preCascadeScores: null,
+        margin: null,
+        entropy: null,
+      };
     }
 
     throw new InternalError(

@@ -44,6 +44,11 @@ export type PromotedKeywordRow = typeof promotedKeywords.$inferSelect;
 export type NewPromotedKeyword = typeof promotedKeywords.$inferInsert;
 export type RoutingEventRow = typeof routingEvents.$inferSelect;
 export type NewRoutingEvent = typeof routingEvents.$inferInsert;
+export type FeedbackRow = typeof feedback.$inferSelect;
+export type NewFeedback = typeof feedback.$inferInsert;
+export type JudgeLabelRow = typeof judgeLabels.$inferSelect;
+export type NewJudgeLabel = typeof judgeLabels.$inferInsert;
+export type LearningWatermarkRow = typeof learningWatermark.$inferSelect;
 
 /** Tenants: the root of the ownership hierarchy. */
 export const tenants = pgTable("tenants", {
@@ -166,7 +171,7 @@ export const promotedKeywords = pgTable(
   (t) => [primaryKey({ columns: [t.tenantId, t.classId] })],
 );
 
-/** Feedback: one user rating linked to a routing event. */
+/** Feedback: one rating linked to a routing event, from a user or the judge. */
 export const feedback = pgTable(
   "feedback",
   {
@@ -176,6 +181,12 @@ export const feedback = pgTable(
       .references(() => routingEvents.routeId, { onDelete: "cascade" }),
     positive: integer("positive").notNull(),
     extractedKeywords: text("extracted_keywords").array(),
+    // 'user' = explicit rating; 'judge' = LLM-as-judge synthetic label.
+    source: text("source").notNull().default("user"),
+    // Judge's gold class; NULL for user feedback (a user only says right/wrong).
+    correctClassId: integer("correct_class_id").references(() => classes.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_feedback_route").on(t.routeId)],
@@ -196,9 +207,40 @@ export const routingEvents = pgTable(
       onDelete: "set null",
     }),
     stage: text("stage").notNull(), // 'pre-cascade' | 'llm' | 'historical'
-    scores: jsonb("scores").notNull(), // { label: score, ... }
+    // Pre-cascade { label: score, ... }; NULL when stage != 'pre-cascade' (the
+    // predicted class is then recoverable from predictedClassId).
+    scores: jsonb("scores"),
+    // Pre-cascade relative top-1/top-2 margin and normalized entropy, the two
+    // escalation-gate signals. NULL when no pre-cascade ran (shortcut path).
+    margin: real("margin"),
+    entropy: real("entropy"),
     channel: text("channel").notNull().default("rest"), // 'rest' | 'litellm' | 'mcp'
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => [index("idx_routing_gate").on(t.gateId)],
 );
+
+/** Judge labels on routing events, for audit and bias monitoring. */
+export const judgeLabels = pgTable(
+  "judge_labels",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => routingEvents.id, { onDelete: "cascade" }),
+    // The class the judge decided is correct (the gold label).
+    correctClassId: integer("correct_class_id").references(() => classes.id, {
+      onDelete: "set null",
+    }),
+    model: text("model").notNull(),
+    status: text("status").notNull().default("ok"), // 'ok' | 'failed'
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("uq_judge_labels_event").on(t.eventId)],
+);
+
+/** Single-row watermarks for the async learning passes (keyword promotion, judge). */
+export const learningWatermark = pgTable("learning_watermark", {
+  key: text("key").primaryKey(),
+  value: integer("value").notNull(),
+});

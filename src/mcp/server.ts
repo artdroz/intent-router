@@ -3,7 +3,7 @@ import type { IncomingMessage } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FastMCP } from "fastmcp";
-import { verifyApiKey } from "../auth/api-keys.js";
+import { resolveServiceTenant, serviceTokenMatches, type ServiceTokenConfig } from "../auth/service-token.js";
 import { registerMcpTools } from "./tools.js";
 import type { McpSession } from "./session.js";
 
@@ -34,20 +34,29 @@ function unauthorized(): never {
   throw new Response(null, { status: 401, statusText: "Unauthorized" });
 }
 
-/** Build the in-process MCP server with its tools and API-key authentication. */
-export function buildMcpServer(): FastMCP<McpSession> {
+/** Build the in-process MCP server with its tools and LiteLLM service-token authentication. */
+export function buildMcpServer(config: ServiceTokenConfig): FastMCP<McpSession> {
   const server = new FastMCP<McpSession>({
     name: "intent-router",
     version: packageVersion(),
     authenticate: async (request: IncomingMessage | undefined) => {
       // stdio has no HTTP request context, so fail closed: this server only
-      // accepts API keys over HTTP transport.
+      // accepts the LiteLLM service token over HTTP transport.
       if (!request) return unauthorized();
 
-      const result = await verifyApiKey(request.headers.authorization);
-      if (!result.ok) return unauthorized();
+      if (!serviceTokenMatches(request.headers, config.LITELLM_PROXY_TOKEN)) {
+        return unauthorized();
+      }
 
-      return { tenantId: result.tenantId };
+      const result = await resolveServiceTenant(request.headers, config);
+      if (result.ok) return { tenantId: result.tenantId };
+
+      // initialize / tools/list arrive without a tenant header (the guardrail
+      // only stamps tool calls). Admit them with an empty session; tenant-bound
+      // tools fail closed later via requireTenant.
+      if (result.error === "missing_tenant") return {};
+
+      return unauthorized();
     },
   });
 

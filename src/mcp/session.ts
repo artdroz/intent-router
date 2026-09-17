@@ -5,5 +5,5 @@
  * so we extend `Record<string, unknown>` to satisfy that bound.
  */
 export interface McpSession extends Record<string, unknown> {
-  tenantId: string;
+  tenantId?: string;
 }

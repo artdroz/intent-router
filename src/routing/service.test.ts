@@ -28,6 +28,8 @@ function routeEvent(overrides: Partial<RoutingEventRow> = {}): RoutingEventRow {
     predictedClassId: 42,
     stage: "pre-cascade",
     scores: {},
+    margin: null,
+    entropy: null,
     channel: "rest",
     createdAt: new Date(),
     ...overrides,
@@ -116,6 +118,17 @@ describe("submitFeedback (embedding learning)", () => {
   it("learns from negative feedback when the top-2 margin equals LRN_NEG_MARGIN", async () => {
     getRouteByRouteId.mockResolvedValue(
       routeEvent({ scores: { deploy: 0.6, other: 0.4 } }), // margin 0.20 → inclusive
+    );
+    getClassById.mockResolvedValue(predictedClass);
+
+    await submitFeedback({ routeId: "r_abc", positive: false }, "tenant-1");
+
+    await vi.waitFor(() => expect(insertMany).toHaveBeenCalled());
+  });
+
+  it("learns from any llm-stage miss even when the top-2 margin is small", async () => {
+    getRouteByRouteId.mockResolvedValue(
+      routeEvent({ stage: "llm", scores: { deploy: 0.55, other: 0.45 } }), // margin 0.10 < 0.20, but the llm stage committed to a bare label
     );
     getClassById.mockResolvedValue(predictedClass);
 
