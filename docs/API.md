@@ -5,7 +5,8 @@ intent router. Every request body is validated against a [Zod](https://zod.dev) 
 constraints listed below are enforced, not advisory.
 
 - **REST** — routing and gate-management under `/api`, authenticated with a per-tenant API key.
-- **MCP** — the same operations re-exposed as Model Context Protocol tools.
+- **MCP** — the same operations re-exposed as Model Context Protocol tools, authenticated with the
+  shared service token plus a tenant header.
 - **LiteLLM / OpenAI-compatible** — `/v1/models` and `/v1/chat/completions`, authenticated with a
   shared service token plus a tenant header.
 
@@ -24,7 +25,7 @@ constraints listed below are enforced, not advisory.
 | Surface                     | Mechanism                                                                                                                          |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
 | REST                        | `Authorization: Bearer <api-key>`. Missing, unknown, disabled, or expired keys are rejected with a distinct `401`.                  |
-| MCP                         | Same `verifyApiKey` check, applied in the MCP server's `authenticate` callback. Connections without an HTTP request context (stdio) are rejected. |
+| MCP                         | `intent-router-token` header matching the configured proxy token **and** an `intent-router-tenant` header naming the tenant, checked in the MCP server's `authenticate` callback. With `AUTO_CREATE_TENANT` enabled, an unknown tenant is created on first sight instead of being rejected. |
 | LiteLLM / OpenAI-compatible | `intent-router-token` header matching the configured proxy token **and** an `intent-router-tenant` header naming the tenant. With `AUTO_CREATE_TENANT` enabled, an unknown tenant name is created on first sight instead of being rejected. |
 
 API keys are generated as `sk-<uuid>`, stored as a SHA-256 hash, and managed through the operator
