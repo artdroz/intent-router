@@ -4,6 +4,7 @@ node_modules/
 # Environment and secrets
 .env
 config/
+k8s/secrets.example.yaml
 k8s/secrets.local.yaml
 .venv*
 

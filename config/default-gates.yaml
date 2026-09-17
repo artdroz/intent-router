@@ -1,4 +1,4 @@
-# Service-wide default config — the dev team's source of truth for system gates.
+# Service-wide default config — the source of truth for system gates.
 #
 # models: model name -> gate name (LiteLLM request-time resolution; NOT seeded).
 # gates:  full gate definitions, seeded into the DB at startup via an idempotent
