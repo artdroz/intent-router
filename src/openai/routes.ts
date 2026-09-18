@@ -44,15 +44,18 @@ export function openaiRoutes(app: FastifyInstance, defaultModels: Record<string,
 
   // Service-level introspection used by the LiteLLM classifier plugin to verify
   // class-name consistency. Token-only (no tenant header).
-  app.get<{ Params: { name: string } }>("/v1/intent-router/gates/:name/classes", async (req, reply) => {
-    const raw = await getGateByName(req.params.name);
-    if (!raw) {
-      return reply
-        .status(404)
-        .send(openaiError(404, "invalid_request_error", `Gate "${req.params.name}" not found`));
-    }
-    return { classes: raw.classes.map((c) => c.label) };
-  });
+  app.get<{ Params: { name: string } }>(
+    "/v1/intent-router/gates/:name/classes",
+    async (req, reply) => {
+      const raw = await getGateByName(req.params.name);
+      if (!raw) {
+        return reply
+          .status(404)
+          .send(openaiError(404, "invalid_request_error", `Gate "${req.params.name}" not found`));
+      }
+      return { classes: raw.classes.map((c) => c.label) };
+    },
+  );
 
   // LiteLLM declares models in its own config. This is solely for debugging and
   // generic OpenAI clients.

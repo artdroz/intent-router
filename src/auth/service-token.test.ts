@@ -13,7 +13,9 @@ const findTenantByName = vi.mocked(tenants.findTenantByName);
 
 const config = { LITELLM_PROXY_TOKEN: "secret", AUTO_CREATE_TENANT: false };
 
-function headers(overrides: Record<string, string | string[] | undefined> = {}): IncomingHttpHeaders {
+function headers(
+  overrides: Record<string, string | string[] | undefined> = {},
+): IncomingHttpHeaders {
   return {
     "intent-router-token": "secret",
     "intent-router-tenant": "tenant-a",

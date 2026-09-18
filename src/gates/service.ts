@@ -10,7 +10,13 @@ import type {
 } from "./schema.js";
 import type { Gate, GateClass, GateDto, GateClassDto } from "./types.js";
 import type { GateRow, ClassRow } from "../store/schema.js";
-import { ConflictError, ForbiddenError, InternalError, NotFoundError, ValidationError } from "../errors.js";
+import {
+  ConflictError,
+  ForbiddenError,
+  InternalError,
+  NotFoundError,
+  ValidationError,
+} from "../errors.js";
 
 /** Create a gate, its classes, and index their utterance embeddings. */
 export async function createGate(tenantId: string, input: CreateGateInput): Promise<GateDto> {

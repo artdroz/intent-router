@@ -133,7 +133,8 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
     parameters: createGateSchema,
     outputSchema: gateDtoSchema,
-    execute: async (args, context) => toJsonGateDto(await gates.createGate(requireTenant(context), args)),
+    execute: async (args, context) =>
+      toJsonGateDto(await gates.createGate(requireTenant(context), args)),
   });
 
   server.addTool({

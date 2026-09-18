@@ -7,7 +7,7 @@ vi.mock("./db.js", () => ({ getDb: vi.fn() }));
 const getDbMock = vi.mocked(getDb);
 
 /** A drizzle-shaped query builder whose final `.limit()` rejects with `err`. */
-function dbThatRejects(err: unknown) {
+function dbThatRejects(err: Error) {
   const builder: Record<string, unknown> = { limit: () => Promise.reject(err) };
   builder.from = () => builder;
   builder.where = () => builder;

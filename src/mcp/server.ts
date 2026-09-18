@@ -3,7 +3,11 @@ import type { IncomingMessage } from "node:http";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FastMCP } from "fastmcp";
-import { resolveServiceTenant, serviceTokenMatches, type ServiceTokenConfig } from "../auth/service-token.js";
+import {
+  resolveServiceTenant,
+  serviceTokenMatches,
+  type ServiceTokenConfig,
+} from "../auth/service-token.js";
 import { registerMcpTools } from "./tools.js";
 import type { McpSession } from "./session.js";
 
