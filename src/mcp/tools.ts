@@ -9,6 +9,7 @@ import {
   addClassSchema,
   updateClassSchema,
 } from "../gates/schema.js";
+import type { GateDto } from "../gates/types.js";
 import type { McpSession } from "./session.js";
 import { NotFoundError, UnauthorizedError } from "../errors.js";
 
@@ -23,7 +24,12 @@ const routeResultSchema = z.object({
   label: z.string(),
   score: z.number(),
   stage: z.enum(["pre-cascade", "llm", "historical"]),
-  scores: z.record(z.string(), z.number()),
+  scores: z.array(
+    z.object({
+      label: z.string(),
+      score: z.number(),
+    }),
+  ),
 });
 
 const gateClassDtoSchema = z.object({
@@ -39,11 +45,23 @@ const gateDtoSchema = z.object({
   shared: z.boolean(),
   config: z.object({ learningEnabled: z.boolean() }),
   classes: z.array(gateClassDtoSchema),
-  createdAt: z.date(),
-  updatedAt: z.date(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
 });
 
 const gateListSchema = z.object({ gates: z.array(gateDtoSchema) });
+
+function toJsonGateDto(gate: GateDto) {
+  return {
+    ...gate,
+    createdAt: gate.createdAt.toISOString(),
+    updatedAt: gate.updatedAt.toISOString(),
+  };
+}
+
+function toRouteScores(scores: Record<string, number>) {
+  return Object.entries(scores).map(([label, score]) => ({ label, score }));
+}
 
 function requireTenant(context: ToolContext): string {
   const tenantId = context.session?.tenantId;
@@ -64,7 +82,7 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     outputSchema: routeResultSchema,
     execute: async (args, context) => {
       const { routeId, result } = await routing.route(requireTenant(context), args, "mcp");
-      return { routeId, ...result };
+      return { routeId, ...result, scores: toRouteScores(result.scores) };
     },
   });
 
@@ -90,7 +108,7 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     parameters: z.object({}),
     outputSchema: gateListSchema,
     execute: async (_args, context) => ({
-      gates: await gates.listGates(requireTenant(context)),
+      gates: (await gates.listGates(requireTenant(context))).map(toJsonGateDto),
     }),
   });
 
@@ -103,7 +121,7 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     execute: async ({ name }, context) => {
       const gate = await gates.getGate(requireTenant(context), name);
       if (!gate) throw new NotFoundError(`Gate "${name}" not found`);
-      return gate;
+      return toJsonGateDto(gate);
     },
   });
 
@@ -115,7 +133,7 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false },
     parameters: createGateSchema,
     outputSchema: gateDtoSchema,
-    execute: async (args, context) => gates.createGate(requireTenant(context), args),
+    execute: async (args, context) => toJsonGateDto(await gates.createGate(requireTenant(context), args)),
   });
 
   server.addTool({
@@ -128,7 +146,7 @@ export function registerMcpTools(server: FastMCP<McpSession>) {
     }),
     outputSchema: gateDtoSchema,
     execute: async ({ gate, patch }, context) =>
-      gates.updateGate(requireTenant(context), gate, patch),
+      toJsonGateDto(await gates.updateGate(requireTenant(context), gate, patch)),
   });
 
   server.addTool({

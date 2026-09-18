@@ -129,8 +129,10 @@ lanes only work when the LiteLLM side is wired up. That lives in the sibling rep
 
 - the `ClassifierPlugin` that turns a prompt into a tier label, plus the marker deployment and
   `tiers` mapping (`deploy/litellm-config.reference.yaml`);
-- the MCP Gateway config and the `intent_router_tenant_guardrail` that stamps the tenant header
-  from LiteLLM's authenticated API key hash (`deploy/litellm-values.reference.yaml`).
+- the MCP Gateway entry and the `intent_router_tenant_guardrail` that stamps the tenant header from
+  LiteLLM's authenticated API key hash, also in `deploy/litellm-config.reference.yaml`;
+  `deploy/litellm-values.reference.yaml` only carries the Helm values (child image and plugin env
+  vars).
 
 Both lanes share one service token (`LITELLM_PROXY_TOKEN`, sent as `intent-router-token`) and
 identify tenants by the LiteLLM key hash, so the plugin lane's classification learning and the MCP
