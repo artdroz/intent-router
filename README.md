@@ -210,4 +210,3 @@ host-gateway`).
 
 - [`docs/architecture.md`](docs/architecture.md) — routing pipeline, online learning, and deployment.
 - [`docs/API.md`](docs/API.md) — REST, MCP, and OpenAI-compatible surface contracts.
-- [`CHANGELOG.md`](CHANGELOG.md) — release notes.
